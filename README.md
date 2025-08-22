@@ -5,8 +5,6 @@ An AI-powered web application that automatically generates synchronized lyrics w
 ![Lyric Syncer Demo](https://img.shields.io/badge/Status-Production%20Ready-brightgreen)
 ![React](https://img.shields.io/badge/React-19.1.1-blue)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.104.1-green)
-![Whisper](https://img.shields.io/badge/Whisper-X-Large%20v3-orange)
-
 ## ✨ Features
 
 ### 🎯 Core Functionality
