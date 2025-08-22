@@ -17,17 +17,22 @@ async def stt_endpoint(audio: UploadFile = File(...)):
         audio_bytes = await audio.read()
         output = client.automatic_speech_recognition(audio_bytes, model="openai/whisper-large-v3")
         
-        # For now, return a simple structure that matches frontend expectations
-        # In a real implementation, you'd want to use whisper with timestamps
-        result = {
-            "text": output,
-            "chunks": [
-                {
-                    "text": output,
-                    "timestamp": [0, 30]  # Mock timestamp for now
-                }
-            ]
-        }
+        # Parse the output to extract text and chunks with timestamps
+        # The output should be in the format you showed with text and chunks
+        if isinstance(output, dict) and "text" in output and "chunks" in output:
+            # If the output is already in the correct format
+            result = output
+        else:
+            # If it's just a string, create a simple structure
+            result = {
+                "text": str(output),
+                "chunks": [
+                    {
+                        "text": str(output),
+                        "timestamp": [0, 30]  # Fallback timestamp
+                    }
+                ]
+            }
         
         return {"result": result}
     except Exception as e:
