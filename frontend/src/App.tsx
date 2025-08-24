@@ -1,23 +1,33 @@
+import { Sun, Moon } from "lucide-react";
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Progress } from "@/components/ui/progress";
-import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
-import { Play, Pause, SkipBack, SkipForward, Download, Info, Mic, Zap, Clock, Globe, Edit3, Save, X, Plus } from "lucide-react";
-
-interface LyricChunk {
-  text: string;
-  timestamp: [number, number];
-}
-
-interface TranscriptionResult {
-  text: string;
-  chunks: LyricChunk[];
-}
+import { Mic, Edit3 } from "lucide-react";
+import InfoPanel from "@/components/own/InfoPanel";
+import FileUploadPanel from "@/components/own/FileUploadPanel";
+import AudioPlayerPanel from "@/components/own/AudioPlayerPanel";
+import LyricsPanel from "@/components/own/LyricsPanel";
+import type { LyricChunk, TranscriptionResult } from "./types";
 
 function App() {
+  // ...existing code...
+  // const [helpOpen, setHelpOpen] = useState(false); // Help modal removed
+  // Dark mode state
+  const [darkMode, setDarkMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('theme') === 'dark';
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  }, [darkMode]);
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [audioUrl, setAudioUrl] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -36,6 +46,9 @@ function App() {
   const [isEditMode, setIsEditMode] = useState(false);
   const [leftPanelWidth, setLeftPanelWidth] = useState(50); // percentage
   const [isDragging, setIsDragging] = useState(false);
+  // Advanced audio controls
+  const [playbackRate, setPlaybackRate] = useState(1);
+  const [abLoop, setAbLoop] = useState<{ a: number | null; b: number | null }>({ a: null, b: null });
   const audioRef = useRef<HTMLAudioElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const lyricsContainerRef = useRef<HTMLDivElement>(null);
@@ -118,6 +131,31 @@ function App() {
       setIsPlaying(!isPlaying);
     }
   };
+
+  // Keep playbackRate in sync with audio element
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.playbackRate = playbackRate;
+    }
+  }, [playbackRate]);
+
+  // A/B Looping: if enabled, keep audio in loop
+  useEffect(() => {
+    const audioEl = audioRef.current;
+    if (!audioEl) return;
+    if (!isPlaying) return;
+    if (abLoop.a !== null && abLoop.b !== null && abLoop.b > abLoop.a) {
+      const handler = () => {
+        if (audioEl.currentTime >= abLoop.b!) {
+          audioEl.currentTime = abLoop.a!;
+        }
+      };
+      audioEl.addEventListener('timeupdate', handler);
+      return () => {
+        audioEl.removeEventListener('timeupdate', handler);
+      };
+    }
+  }, [abLoop, isPlaying]);
 
   const handleTimeUpdate = () => {
     if (audioRef.current) {
@@ -401,227 +439,63 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background to-muted/20">
+    <div className="min-h-screen bg-gradient-to-br from-background to-muted/20 transition-colors duration-300">
+  {/* Help button and modal removed */}
+      <button
+        className="fixed top-4 right-4 z-50 bg-background dark:bg-muted border border-border rounded-full w-10 h-10 flex items-center justify-center shadow hover:bg-primary/10 transition-colors"
+        onClick={() => setDarkMode((d) => !d)}
+        title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+        aria-label="Toggle dark mode"
+      >
+        {darkMode ? (
+          <Sun className="h-5 w-5 text-yellow-400" />
+        ) : (
+          <Moon className="h-5 w-5 text-primary" />
+        )}
+      </button>
       <div ref={containerRef} className="flex h-screen relative">
         {/* Left Panel - Controls */}
         <div 
           className="flex flex-col p-6 min-w-0" 
           style={{ width: `${leftPanelWidth}%` }}
         >
-          {/* Header */}
-          <div className="mb-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 bg-primary/10 rounded-lg">
-                <Mic className="h-6 w-6 text-primary" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold">Lyric Syncer</h1>
-                <p className="text-sm text-muted-foreground">AI-powered lyric synchronization</p>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-2">
-              <Button 
-                variant="ghost" 
-                size="sm"
-                onClick={() => setShowInfo(!showInfo)}
-                className="text-xs"
-              >
-                <Info className="h-3 w-3 mr-1" />
-                How it works
-              </Button>
-            </div>
+          {/* Header / Info Panel */}
+          <InfoPanel showInfo={showInfo} setShowInfo={setShowInfo} />
 
-            {showInfo && (
-              <Card className="mt-4 border-primary/20 bg-primary/5">
-                <CardContent className="p-4 text-sm space-y-3">
-                  <div className="flex items-start gap-2">
-                    <Zap className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
-                    <div>
-                      <p className="font-medium text-primary">OpenAI Whisper-X Model</p>
-                      <p className="text-muted-foreground">Advanced speech-to-text with precise timestamp alignment</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-start gap-2">
-                    <Globe className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
-                    <div>
-                      <p className="font-medium text-primary">Hugging Face Inference</p>
-                      <p className="text-muted-foreground">Powered by HF's inference endpoints for reliable processing</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-start gap-2">
-                    <Clock className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
-                    <div>
-                      <p className="font-medium text-primary">Word-Level Alignment</p>
-                      <p className="text-muted-foreground">Generates precise timestamps for each lyric segment</p>
-                    </div>
-                  </div>
-                  
-                  <div className="pt-2 border-t border-primary/20">
-                    <p className="text-xs text-muted-foreground">
-                      Supports: MP3, WAV, M4A, FLAC • Max: 25MB • Languages: 100+
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
+          {/* File Upload Panel */}
+          <FileUploadPanel
+            audioFile={audioFile}
+            isProcessing={isProcessing}
+            processingProgress={processingProgress}
+            transcriptionResult={transcriptionResult}
+            handleFileUpload={handleFileUpload}
+            processAudio={processAudio}
+            fileInputRef={fileInputRef as React.RefObject<HTMLInputElement>}
+            getProcessingStatusText={getProcessingStatusText}
+          />
 
-          {/* File Upload */}
-          <Card className="mb-4 shadow-sm">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <div className="p-1 bg-primary/10 rounded">
-                  <Download className="h-4 w-4 text-primary" />
-                </div>
-                Upload Audio
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Input
-                ref={fileInputRef}
-                type="file"
-                accept="audio/*"
-                onChange={handleFileUpload}
-                className="hidden"
-              />
-              <Button 
-                onClick={() => fileInputRef.current?.click()}
-                variant="outline"
-                className="w-full h-10 border-2 border-dashed hover:border-primary/50 hover:bg-primary/5"
-              >
-                <Download className="h-4 w-4 mr-2" />
-                Choose Audio File
-              </Button>
-              
-              {audioFile && (
-                <div className="mt-3">
-                  <Badge variant="secondary" className="mb-2 max-w-full truncate">
-                    {audioFile.name}
-                  </Badge>
-                  <div className="text-xs text-muted-foreground mb-3">
-                    Size: {(audioFile.size / 1024 / 1024).toFixed(1)} MB • 
-                    Type: {audioFile.type}
-                  </div>
-                  
-                  {isProcessing ? (
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-primary font-medium">{getProcessingStatusText()}</span>
-                        <span className="font-mono">{Math.round(processingProgress)}%</span>
-                      </div>
-                      <Progress value={processingProgress} className="w-full h-2" />
-                      <p className="text-xs text-muted-foreground">
-                        This may take 30-60 seconds depending on audio length...
-                      </p>
-                    </div>
-                  ) : (
-                    !transcriptionResult && (
-                      <Button 
-                        onClick={processAudio}
-                        className="w-full h-10 bg-primary hover:bg-primary/90"
-                      >
-                        <Zap className="h-4 w-4 mr-2" />
-                        Sync Lyrics with AI
-                      </Button>
-                    )
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Audio Player */}
+          {/* Audio Player Panel */}
           {audioUrl && (
-            <Card className="mb-4 flex-1 shadow-sm">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <div className="p-1 bg-primary/10 rounded">
-                    <Play className="h-4 w-4 text-primary" />
-                  </div>
-                  Audio Player
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="flex-1 flex flex-col">
-                <audio
-                  ref={audioRef}
-                  src={audioUrl}
-                  onTimeUpdate={handleTimeUpdate}
-                  onLoadedMetadata={handleLoadedMetadata}
-                  onPlay={() => setIsPlaying(true)}
-                  onPause={() => setIsPlaying(false)}
-                  className="hidden"
-                />
-                
-                {/* Progress Bar */}
-                <div className="mb-4">
-                  <div 
-                    className="w-full h-2 bg-muted rounded-full cursor-pointer group relative overflow-hidden"
-                    onClick={handleProgressClick}
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-primary/10 opacity-0 group-hover:opacity-100 transition-opacity" />
-                    <div 
-                      className="h-full bg-gradient-to-r from-primary to-primary/80 rounded-full transition-all"
-                      style={{ width: duration ? `${(currentTime / duration) * 100}%` : '0%' }}
-                    />
-                  </div>
-                  <div className="flex justify-between text-sm text-muted-foreground mt-1 font-mono">
-                    <span>{formatTime(currentTime)}</span>
-                    <span>{formatTime(duration)}</span>
-                  </div>
-                </div>
-
-                {/* Controls */}
-                <div className="flex justify-center items-center gap-4">
-                  <Button 
-                    variant="ghost" 
-                    size="icon"
-                    onClick={skipBackward}
-                    className="h-8 w-8 hover:bg-primary/10"
-                    title="Skip back 10s"
-                  >
-                    <SkipBack className="h-4 w-4" />
-                  </Button>
-                  
-                  <Button
-                    onClick={handlePlayPause}
-                    size="icon"
-                    className="h-12 w-12 rounded-full shadow-lg hover:shadow-xl transition-shadow"
-                  >
-                    {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5 ml-0.5" />}
-                  </Button>
-                  
-                  <Button 
-                    variant="ghost" 
-                    size="icon"
-                    onClick={skipForward}
-                    className="h-8 w-8 hover:bg-primary/10"
-                    title="Skip forward 10s"
-                  >
-                    <SkipForward className="h-4 w-4" />
-                  </Button>
-                </div>
-
-                {/* Download Button */}
-                {transcriptionResult && (
-                  <div className="mt-auto pt-4">
-                    <Button 
-                      onClick={downloadLRC}
-                      variant="outline"
-                      className="w-full hover:bg-primary/5"
-                    >
-                      <Download className="h-4 w-4 mr-2" />
-                      Download LRC File
-                    </Button>
-                    <p className="text-xs text-muted-foreground mt-1 text-center">
-                      Compatible with media players & karaoke software
-                    </p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            <AudioPlayerPanel
+              audioUrl={audioUrl}
+              audioRef={audioRef as React.RefObject<HTMLAudioElement>}
+              isPlaying={isPlaying}
+              currentTime={currentTime}
+              duration={duration}
+              handlePlayPause={handlePlayPause}
+              handleTimeUpdate={handleTimeUpdate}
+              handleLoadedMetadata={handleLoadedMetadata}
+              handleProgressClick={handleProgressClick}
+              skipBackward={skipBackward}
+              skipForward={skipForward}
+              downloadLRC={downloadLRC}
+              transcriptionResult={transcriptionResult}
+              formatTime={formatTime}
+              playbackRate={playbackRate}
+              setPlaybackRate={setPlaybackRate}
+              abLoop={abLoop}
+              setAbLoop={setAbLoop}
+            />
           )}
         </div>
 
@@ -678,149 +552,27 @@ function App() {
                 </div>
               )}
             </div>
-            
-            <div className="flex-1 overflow-hidden">
-              {transcriptionResult ? (
-                <div 
-                  ref={lyricsContainerRef}
-                  className="h-full overflow-y-auto px-4 py-4 scroll-smooth"
-                  style={{ scrollbarWidth: 'thin' }}
-                >
-                  <div className="space-y-2 max-w-none">
-                    {transcriptionResult.chunks.map((chunk: LyricChunk, index: number) => (
-                      <div
-                        id={`lyric-chunk-${index}`}
-                        key={index}
-                        className={`py-3 px-4 rounded-lg cursor-pointer transition-all duration-300 transform hover:scale-[1.01] ${
-                          index === activeChunkIndex || index === manuallySelectedChunk
-                            ? 'bg-gradient-to-r from-primary/15 to-primary/10 text-primary shadow-md border border-primary/30 scale-[1.02]'
-                            : 'hover:bg-muted/60 text-muted-foreground hover:text-foreground hover:shadow-sm'
-                        }`}
-                        onClick={() => !isEditMode && handleLyricClick(chunk, index)}
-                      >
-                        {editingIndex === index ? (
-                          <div className="space-y-3">
-                            <Textarea
-                              value={editText}
-                              onChange={(e) => setEditText(e.target.value)}
-                              className="min-h-[60px] resize-none"
-                              placeholder="Enter lyric text..."
-                            />
-                            <div className="flex gap-2">
-                              <div className="flex-1">
-                                <label className="text-xs text-muted-foreground">Start Time</label>
-                                <Input
-                                  value={editStartTime}
-                                  onChange={(e) => setEditStartTime(e.target.value)}
-                                  placeholder="0:00"
-                                  className="h-8 text-sm"
-                                />
-                              </div>
-                              <div className="flex-1">
-                                <label className="text-xs text-muted-foreground">End Time</label>
-                                <Input
-                                  value={editEndTime}
-                                  onChange={(e) => setEditEndTime(e.target.value)}
-                                  placeholder="0:00"
-                                  className="h-8 text-sm"
-                                />
-                              </div>
-                            </div>
-                            <div className="flex gap-2">
-                              <Button size="sm" onClick={saveEdit} className="flex-1">
-                                <Save className="h-3 w-3 mr-1" />
-                                Save
-                              </Button>
-                              <Button size="sm" variant="outline" onClick={cancelEdit} className="flex-1">
-                                <X className="h-3 w-3 mr-1" />
-                                Cancel
-                              </Button>
-                            </div>
-                          </div>
-                        ) : (
-                          <>
-                            <div className="flex items-start justify-between">
-                              <p className={`leading-relaxed transition-all flex-1 ${
-                                index === activeChunkIndex || index === manuallySelectedChunk
-                                  ? 'text-base font-medium' 
-                                  : 'text-sm hover:font-medium'
-                              }`}>
-                                {typeof chunk.text === 'string' ? chunk.text.trim() : String(chunk.text || '')}
-                              </p>
-                              {isEditMode && (
-                                <div className="flex items-center gap-1 ml-2">
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => startEditing(index)}
-                                    className="h-6 w-6 p-0"
-                                  >
-                                    <Edit3 className="h-3 w-3" />
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => deleteChunk(index)}
-                                    className="h-6 w-6 p-0 text-destructive hover:text-destructive"
-                                  >
-                                    <X className="h-3 w-3" />
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => addChunk(index)}
-                                    className="h-6 w-6 p-0 text-primary"
-                                  >
-                                    <Plus className="h-3 w-3" />
-                                  </Button>
-                                </div>
-                              )}
-                            </div>
-                            <div className={`text-xs mt-1 font-mono flex items-center gap-2 ${
-                              index === activeChunkIndex || index === manuallySelectedChunk
-                                ? 'text-primary/80' 
-                                : 'text-muted-foreground/70'
-                            }`}>
-                              <Clock className="h-3 w-3" />
-                              {formatTime(chunk.timestamp[0])} - {formatTime(chunk.timestamp[1])}
-                              <span className="text-muted-foreground/50">
-                                ({(chunk.timestamp[1] - chunk.timestamp[0]).toFixed(1)}s)
-                              </span>
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    ))}
-                    
-                    <div className="h-16"></div> {/* Bottom spacing for better UX */}
-                  </div>
-                </div>
-              ) : (
-                <div className="h-full flex items-center justify-center text-center p-8">
-                  <div className="max-w-md">
-                    <div className="text-6xl mb-6 opacity-30">🎵</div>
-                    <div className="space-y-2">
-                      <p className="text-lg font-medium text-foreground">
-                        {!audioFile ? 
-                          "Ready to sync your lyrics" : 
-                          isProcessing ? 
-                            "AI is processing your audio..." : 
-                            "Click 'Sync Lyrics' to begin"
-                        }
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {!audioFile ? 
-                          "Upload an audio file to get started with AI-powered lyric synchronization" :
-                          isProcessing ?
-                            "Using OpenAI Whisper-X for precise transcription and alignment" :
-                            "Generate time-synced lyrics that you can export as LRC files"
-                        }
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+            <LyricsPanel
+              transcriptionResult={transcriptionResult}
+              activeChunkIndex={activeChunkIndex}
+              manuallySelectedChunk={manuallySelectedChunk}
+              isEditMode={isEditMode}
+              editingIndex={editingIndex}
+              editText={editText}
+              editStartTime={editStartTime}
+              editEndTime={editEndTime}
+              setEditText={setEditText}
+              setEditStartTime={setEditStartTime}
+              setEditEndTime={setEditEndTime}
+              startEditing={startEditing}
+              saveEdit={saveEdit}
+              cancelEdit={cancelEdit}
+              deleteChunk={deleteChunk}
+              addChunk={addChunk}
+              handleLyricClick={handleLyricClick}
+              lyricsContainerRef={lyricsContainerRef as React.RefObject<HTMLDivElement>}
+              formatTime={formatTime}
+            />
           </div>
         </div>
       </div>
