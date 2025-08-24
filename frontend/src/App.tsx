@@ -2,6 +2,7 @@ import { Sun, Moon } from "lucide-react";
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Mic, Edit3 } from "lucide-react";
+import TopStatusBar from "@/components/own/TopStatusBar";
 import InfoPanel from "@/components/own/InfoPanel";
 import FileUploadPanel from "@/components/own/FileUploadPanel";
 import AudioPlayerPanel from "@/components/own/AudioPlayerPanel";
@@ -439,34 +440,46 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background to-muted/20 transition-colors duration-300">
-  {/* Help button and modal removed */}
-      <button
-        className="fixed top-4 right-4 z-50 bg-background dark:bg-muted border border-border rounded-full w-10 h-10 flex items-center justify-center shadow hover:bg-primary/10 transition-colors"
-        onClick={() => setDarkMode((d) => !d)}
-        title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
-        aria-label="Toggle dark mode"
-      >
-        {darkMode ? (
-          <Sun className="h-5 w-5 text-yellow-400" />
-        ) : (
-          <Moon className="h-5 w-5 text-primary" />
-        )}
-      </button>
+    <div className={`min-h-screen transition-all duration-500 ${
+      darkMode 
+        ? 'bg-gradient-to-br from-black via-slate-900/90 to-black relative overflow-hidden' 
+        : 'bg-gradient-to-br from-background to-muted/20'
+    }`}>
+      {/* Dark mode enhanced background elements */}
+      {darkMode && (
+        <div className="absolute inset-0 opacity-30">
+          <div className="absolute top-0 -left-4 w-96 h-96 bg-blue-600/20 rounded-full mix-blend-multiply filter blur-3xl animate-pulse"></div>
+          <div className="absolute top-0 -right-4 w-96 h-96 bg-purple-600/20 rounded-full mix-blend-multiply filter blur-3xl animate-pulse animation-delay-2000"></div>
+          <div className="absolute -bottom-8 left-20 w-96 h-96 bg-indigo-600/20 rounded-full mix-blend-multiply filter blur-3xl animate-pulse animation-delay-4000"></div>
+        </div>
+      )}
       <div ref={containerRef} className="flex h-screen relative">
         {/* Left Panel - Controls */}
-        <div 
-          className="flex flex-col p-6 min-w-0" 
-          style={{ width: `${leftPanelWidth}%` }}
-        >
+                  <div 
+            className={`flex flex-col p-6 min-w-0 transition-all duration-500 ${
+              darkMode 
+                ? 'backdrop-blur-md bg-black/40 border-r border-slate-800/60 shadow-2xl' 
+                : ''
+            }`}
+            style={{ width: `${leftPanelWidth}%` }}
+          >
+          {/* Top Status Bar */}
+          <TopStatusBar
+            isProcessing={isProcessing}
+            processingProgress={processingProgress}
+            processingStatus={getProcessingStatusText()}
+            audioFile={audioFile?.name || null}
+            duration={formatTime(duration)}
+            version="v1.0.0"
+          />
+          
           {/* Header / Info Panel */}
-          <InfoPanel showInfo={showInfo} setShowInfo={setShowInfo} />
+          <InfoPanel showInfo={showInfo} setShowInfo={setShowInfo} darkMode={darkMode} />
 
           {/* File Upload Panel */}
           <FileUploadPanel
             audioFile={audioFile}
             isProcessing={isProcessing}
-            processingProgress={processingProgress}
             transcriptionResult={transcriptionResult}
             handleFileUpload={handleFileUpload}
             processAudio={processAudio}
@@ -512,11 +525,19 @@ function App() {
 
         {/* Right Panel - Lyrics */}
         <div 
-          className="border-l border-border bg-muted/10 min-w-0" 
+          className={`border-l min-w-0 transition-all duration-500 ${
+            darkMode 
+              ? 'border-slate-800/60 bg-black/30 backdrop-blur-md shadow-2xl' 
+              : 'border-border bg-muted/10'
+          }`}
           style={{ width: `${100 - leftPanelWidth}%` }}
         >
           <div className="h-full flex flex-col">
-            <div className="p-4 border-b border-border bg-background/50 backdrop-blur-sm">
+            <div className={`p-4 border-b backdrop-blur-sm transition-all duration-500 ${
+              darkMode 
+                ? 'border-slate-800/60 bg-gradient-to-r from-black/60 to-slate-900/40' 
+                : 'border-border bg-background/50'
+            }`}>
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-semibold flex items-center gap-2">
                   <div className="p-1 bg-primary/10 rounded">
@@ -524,8 +545,22 @@ function App() {
                   </div>
                   Synchronized Lyrics
                 </h2>
-                {transcriptionResult && (
-                  <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2">
+                  {/* Dark/Light Mode Toggle */}
+                  <button
+                    className="bg-background dark:bg-muted border border-border rounded-full w-8 h-8 flex items-center justify-center shadow hover:bg-primary/10 transition-colors"
+                    onClick={() => setDarkMode((d) => !d)}
+                    title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+                    aria-label="Toggle dark mode"
+                  >
+                    {darkMode ? (
+                      <Sun className="h-4 w-4 text-yellow-400" />
+                    ) : (
+                      <Moon className="h-4 w-4 text-primary" />
+                    )}
+                  </button>
+                  {/* Edit Mode Button */}
+                  {transcriptionResult && (
                     <Button
                       variant={isEditMode ? "default" : "outline"}
                       size="sm"
@@ -535,8 +570,8 @@ function App() {
                       <Edit3 className="h-3 w-3 mr-1" />
                       {isEditMode ? "Exit Edit" : "Edit Mode"}
                     </Button>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
               {transcriptionResult && (
                 <div className="mt-2 space-y-1">

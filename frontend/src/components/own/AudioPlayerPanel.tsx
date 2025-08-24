@@ -58,16 +58,16 @@ const AudioPlayerPanel: React.FC<AudioPlayerPanelProps> = ({
   const abLoopActive = abLoop.a !== null && abLoop.b !== null && abLoop.b > abLoop.a!;
 
   return (
-    <Card className="mb-4 flex-1 shadow-sm">
-      <CardHeader className="pb-3">
+    <Card className="mb-4 flex-1 shadow-sm dark:shadow-xl dark:bg-black/40 dark:border-slate-800/60 dark:backdrop-blur-sm">
+      <CardHeader className="pb-3 dark:border-slate-700/50">
         <CardTitle className="text-base flex items-center gap-2">
-          <div className="p-1 bg-primary/10 rounded">
+          <div className="p-1 bg-primary/10 dark:bg-primary/20 rounded">
             <Play className="h-4 w-4 text-primary" />
           </div>
           Audio Player
         </CardTitle>
       </CardHeader>
-      <CardContent className="flex-1 flex flex-col gap-2">
+      <CardContent className="flex-1 flex flex-col gap-2 dark:bg-gradient-to-br dark:from-black/20 dark:to-slate-900/10">
         <audio
           ref={audioRef}
           src={audioUrl}
@@ -132,7 +132,7 @@ const AudioPlayerPanel: React.FC<AudioPlayerPanelProps> = ({
             <div className="flex items-center gap-1">
               <span className="text-xs text-muted-foreground">Speed</span>
               <select
-                className="rounded border px-1 py-0.5 text-xs bg-background"
+                className="rounded border px-1 py-0.5 text-xs bg-background dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200"
                 value={playbackRate}
                 onChange={e => setPlaybackRate(Number(e.target.value))}
               >

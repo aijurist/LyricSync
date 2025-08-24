@@ -3,14 +3,12 @@ import React from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Download, Zap } from "lucide-react";
 
 interface FileUploadPanelProps {
   audioFile: File | null;
   isProcessing: boolean;
-  processingProgress: number;
   transcriptionResult: TranscriptionResult | null;
   handleFileUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
   processAudio: () => void;
@@ -21,14 +19,13 @@ interface FileUploadPanelProps {
 const FileUploadPanel: React.FC<FileUploadPanelProps> = ({
   audioFile,
   isProcessing,
-  processingProgress,
   transcriptionResult,
   handleFileUpload,
   processAudio,
   fileInputRef,
   getProcessingStatusText
 }) => (
-  <Card className="mb-4 shadow-sm">
+  <Card className="mb-4 shadow-sm dark:shadow-xl dark:bg-black/40 dark:border-slate-800/60 dark:backdrop-blur-sm">
     <CardHeader className="pb-3">
       <CardTitle className="text-base flex items-center gap-2">
         <div className="p-1 bg-primary/10 rounded">
@@ -64,13 +61,12 @@ const FileUploadPanel: React.FC<FileUploadPanelProps> = ({
           </div>
           {isProcessing ? (
             <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-primary font-medium">{getProcessingStatusText()}</span>
-                <span className="font-mono">{Math.round(processingProgress)}%</span>
+              <div className="flex items-center gap-2 text-sm text-primary">
+                <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
+                <span className="font-medium">{getProcessingStatusText()}</span>
               </div>
-              <Progress value={processingProgress} className="w-full h-2" />
               <p className="text-xs text-muted-foreground">
-                This may take 30-60 seconds depending on audio length...
+                Processing in progress... Check the top status bar for details.
               </p>
             </div>
           ) : (
