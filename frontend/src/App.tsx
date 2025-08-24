@@ -192,7 +192,7 @@ function App() {
       if (element && lyricsContainerRef.current) {
         element.scrollIntoView({ 
           behavior: 'smooth', 
-          block: 'center' 
+          block: 'nearest' 
         });
       }
     }, 100);
@@ -262,7 +262,7 @@ function App() {
             if (element && lyricsContainerRef.current) {
               element.scrollIntoView({ 
                 behavior: 'smooth', 
-                block: 'center' 
+                block: 'nearest' 
               });
             }
           }, 100);
