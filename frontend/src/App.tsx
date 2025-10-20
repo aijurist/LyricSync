@@ -1,5 +1,5 @@
 import { Sun, Moon } from "lucide-react";
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
 import { Mic, Edit3 } from "lucide-react";
 import TopStatusBar from "@/components/own/TopStatusBar";
@@ -10,9 +10,6 @@ import LyricsPanel from "@/components/own/LyricsPanel";
 import type { LyricChunk, TranscriptionResult } from "./types";
 
 function App() {
-  // ...existing code...
-  // const [helpOpen, setHelpOpen] = useState(false); // Help modal removed
-  // Dark mode state
   const [darkMode, setDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('theme') === 'dark';
@@ -45,15 +42,39 @@ function App() {
   const [editStartTime, setEditStartTime] = useState('');
   const [editEndTime, setEditEndTime] = useState('');
   const [isEditMode, setIsEditMode] = useState(false);
-  const [leftPanelWidth, setLeftPanelWidth] = useState(50); // percentage
+  const [leftPanelWidth, setLeftPanelWidth] = useState(50);
   const [isDragging, setIsDragging] = useState(false);
-  // Advanced audio controls
   const [playbackRate, setPlaybackRate] = useState(1);
   const [abLoop, setAbLoop] = useState<{ a: number | null; b: number | null }>({ a: null, b: null });
   const audioRef = useRef<HTMLAudioElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const lyricsContainerRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const [backendStatus, setBackendStatus] = useState<'ok' | 'down' | 'checking'>('checking');
+
+  const checkBackendHealth = useCallback(async () => {
+    setBackendStatus('checking');
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+    try {
+      const res = await fetch('http://localhost:8000/health', { signal: controller.signal });
+      clearTimeout(timeout);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.status === 'ok') {
+          setBackendStatus('ok');
+        } else {
+          setBackendStatus('down');
+        }
+      } else {
+        setBackendStatus('down');
+      }
+    } catch {
+      clearTimeout(timeout);
+      setBackendStatus('down');
+    }
+  }, []);
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -76,49 +97,72 @@ function App() {
 
     setIsProcessing(true);
     setProcessingProgress(0);
-    
-    // Simulate realistic processing progress
-    const progressInterval = setInterval(() => {
-      setProcessingProgress(prev => {
-        if (prev >= 95) {
-          clearInterval(progressInterval);
-          return 95;
-        }
-        return prev + Math.random() * 10 + 5;
-      });
-    }, 300);
 
-    const formData = new FormData();
-    formData.append('audio', audioFile);
-
+    let progressInterval: NodeJS.Timeout | null = null;
+    let succeeded = false;
     try {
-      const response = await fetch('http://localhost:8000/ai/test/stt/', {
+      // Simulate realistic processing progress
+      progressInterval = setInterval(() => {
+        setProcessingProgress(prev => {
+          if (prev >= 95) {
+            if (progressInterval) clearInterval(progressInterval);
+            return 95;
+          }
+          return prev + Math.random() * 10 + 5;
+        });
+      }, 300);
+
+      const formData = new FormData();
+      formData.append('audio', audioFile, audioFile.name);
+
+      const response = await fetch('http://localhost:8000/ai/stt', {
         method: 'POST',
         body: formData,
       });
+
+      let data: { result: TranscriptionResult } | null = null;
+      try {
+        data = await response.json();
+      } catch (jsonErr) {
+        console.error('Failed to parse backend JSON:', jsonErr);
+        throw new Error('Failed to parse backend response as JSON.');
+      }
+      console.log('Backend response:', data);
 
       if (!response.ok) {
         throw new Error(`Server error: ${response.status} ${response.statusText}`);
       }
 
-      const data = await response.json();
-      
-      if (data.result && typeof data.result === 'object') {
+      if (data && data.result && typeof data.result === 'object') {
         setTranscriptionResult(data.result);
+        succeeded = true;
+        if (progressInterval) clearInterval(progressInterval);
+        setProcessingProgress(100);
+        setIsProcessing(false);
       } else {
         console.error('Unexpected response format:', data);
         throw new Error('Received unexpected response format from server');
       }
-      setProcessingProgress(100);
     } catch (error) {
       console.error('Error processing audio:', error);
-      alert(`Error processing audio: ${error instanceof Error ? error.message : 'Unknown error'}. Make sure the backend server is running on localhost:8000.`);
+      
+      let errorMessage = 'Unknown error occurred';
+      if (error instanceof Error) {
+        if (error.message.includes('ECONNRESET') || error.message.includes('Failed to fetch')) {
+          errorMessage = 'Connection was reset. The backend may have crashed or the response was too large. Please check the backend logs and try again.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      alert(`Error processing audio: ${errorMessage}. Make sure the backend server is running on localhost:8000.`);
     } finally {
-      clearInterval(progressInterval);
-      setTimeout(() => {
-        setIsProcessing(false);
-        setProcessingProgress(0);
-      }, 800);
+      if (progressInterval) clearInterval(progressInterval);
+      setIsProcessing(false);
+      setProcessingProgress(succeeded ? 100 : 0);
+      if (succeeded) {
+        setTimeout(() => setProcessingProgress(0), 600);
+      }
     }
   };
 
@@ -133,14 +177,12 @@ function App() {
     }
   };
 
-  // Keep playbackRate in sync with audio element
   useEffect(() => {
     if (audioRef.current) {
       audioRef.current.playbackRate = playbackRate;
     }
   }, [playbackRate]);
 
-  // A/B Looping: if enabled, keep audio in loop
   useEffect(() => {
     const audioEl = audioRef.current;
     if (!audioEl) return;
@@ -178,15 +220,12 @@ function App() {
   };
 
   const handleLyricClick = (chunk: LyricChunk, index: number) => {
-    // Set manually selected chunk immediately
     setManuallySelectedChunk(index);
     setActiveChunkIndex(index);
     
-    // Seek to the exact start time of the clicked chunk
     const seekTime = chunk.timestamp[0];
     handleSeek(seekTime);
     
-    // Scroll the clicked line into view
     setTimeout(() => {
       const element = document.getElementById(`lyric-chunk-${index}`);
       if (element && lyricsContainerRef.current) {
@@ -197,7 +236,6 @@ function App() {
       }
     }, 100);
     
-    // Clear manual selection after a short delay to allow natural playback highlighting
     setTimeout(() => {
       setManuallySelectedChunk(-1);
     }, 1000);
@@ -227,23 +265,19 @@ function App() {
     }
   };
 
-  // Update active chunk based on current time - fixed logic
   useEffect(() => {
     if (transcriptionResult?.chunks && manuallySelectedChunk === -1) {
       let activeIndex = -1;
       
-      // Find the chunk that best matches the current time
       for (let i = 0; i < transcriptionResult.chunks.length; i++) {
         const chunk = transcriptionResult.chunks[i];
         const startTime = chunk.timestamp[0];
         const endTime = chunk.timestamp[1];
         
-        // Current time is within this chunk's timespan
         if (currentTime >= startTime && currentTime <= endTime) {
           activeIndex = i;
           break;
         }
-        // Current time is past this chunk but before the next one
         else if (currentTime >= startTime) {
           const nextChunk = transcriptionResult.chunks[i + 1];
           if (!nextChunk || currentTime < nextChunk.timestamp[0]) {
@@ -255,7 +289,6 @@ function App() {
       if (activeIndex !== activeChunkIndex) {
         setActiveChunkIndex(activeIndex);
         
-        // Auto-scroll to active chunk
         if (activeIndex >= 0) {
           setTimeout(() => {
             const element = document.getElementById(`lyric-chunk-${activeIndex}`);
@@ -359,7 +392,6 @@ function App() {
     setIsDragging(true);
   };
 
-  // Add mouse event listeners
   React.useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!isDragging || !containerRef.current) return;
@@ -367,7 +399,6 @@ function App() {
       const containerRect = containerRef.current.getBoundingClientRect();
       const newLeftWidth = ((e.clientX - containerRect.left) / containerRect.width) * 100;
       
-      // Constrain between 20% and 80%
       const clampedWidth = Math.max(20, Math.min(80, newLeftWidth));
       setLeftPanelWidth(clampedWidth);
     };
@@ -445,7 +476,6 @@ function App() {
         ? 'bg-gradient-to-br from-black via-slate-900/90 to-black relative overflow-hidden' 
         : 'bg-gradient-to-br from-background to-muted/20'
     }`}>
-      {/* Dark mode enhanced background elements */}
       {darkMode && (
         <div className="absolute inset-0 opacity-30">
           <div className="absolute top-0 -left-4 w-96 h-96 bg-blue-600/20 rounded-full mix-blend-multiply filter blur-3xl animate-pulse"></div>
@@ -454,7 +484,6 @@ function App() {
         </div>
       )}
       <div ref={containerRef} className="flex h-screen relative">
-        {/* Left Panel - Controls */}
                   <div 
             className={`flex flex-col p-6 min-w-0 transition-all duration-500 ${
               darkMode 
@@ -463,7 +492,6 @@ function App() {
             }`}
             style={{ width: `${leftPanelWidth}%` }}
           >
-          {/* Top Status Bar */}
           <TopStatusBar
             isProcessing={isProcessing}
             processingProgress={processingProgress}
@@ -471,12 +499,12 @@ function App() {
             audioFile={audioFile?.name || null}
             duration={formatTime(duration)}
             version="v1.0.0"
+            backendStatus={backendStatus}
+            checkBackendHealth={checkBackendHealth}
           />
           
-          {/* Header / Info Panel */}
           <InfoPanel showInfo={showInfo} setShowInfo={setShowInfo} darkMode={darkMode} />
 
-          {/* File Upload Panel */}
           <FileUploadPanel
             audioFile={audioFile}
             isProcessing={isProcessing}
@@ -487,7 +515,6 @@ function App() {
             getProcessingStatusText={getProcessingStatusText}
           />
 
-          {/* Audio Player Panel */}
           {audioUrl && (
             <AudioPlayerPanel
               audioUrl={audioUrl}
@@ -512,7 +539,6 @@ function App() {
           )}
         </div>
 
-        {/* Resize Handle */}
         <div
           className={`w-1 bg-border hover:bg-primary/50 cursor-col-resize transition-colors relative group ${
             isDragging ? 'bg-primary' : ''
@@ -523,7 +549,6 @@ function App() {
           <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-1 h-8 bg-muted-foreground/20 rounded-full group-hover:bg-primary/50 transition-colors" />
         </div>
 
-        {/* Right Panel - Lyrics */}
         <div 
           className={`border-l min-w-0 transition-all duration-500 ${
             darkMode 
@@ -546,7 +571,6 @@ function App() {
                   Synchronized Lyrics
                 </h2>
                 <div className="flex items-center gap-2">
-                  {/* Dark/Light Mode Toggle */}
                   <button
                     className="bg-background dark:bg-muted border border-border rounded-full w-8 h-8 flex items-center justify-center shadow hover:bg-primary/10 transition-colors"
                     onClick={() => setDarkMode((d) => !d)}
@@ -559,7 +583,6 @@ function App() {
                       <Moon className="h-4 w-4 text-primary" />
                     )}
                   </button>
-                  {/* Edit Mode Button */}
                   {transcriptionResult && (
                     <Button
                       variant={isEditMode ? "default" : "outline"}
@@ -607,6 +630,7 @@ function App() {
               handleLyricClick={handleLyricClick}
               lyricsContainerRef={lyricsContainerRef as React.RefObject<HTMLDivElement>}
               formatTime={formatTime}
+              currentTime={currentTime}
             />
           </div>
         </div>

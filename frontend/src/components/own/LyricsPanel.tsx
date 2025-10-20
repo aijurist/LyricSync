@@ -1,10 +1,10 @@
 import React from 'react';
 import { Button } from "@/components/ui/button";
-import { Edit3, X, Plus, Save, Clock, Info } from "lucide-react";
+import { Edit3, X, Plus, Save, Clock, Info, Languages } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
-import type { LyricChunk } from "../../types";
+import type { LyricChunk, Word } from "../../types";
 
 export interface LyricsPanelProps {
   transcriptionResult: { chunks: LyricChunk[] } | null;
@@ -26,6 +26,7 @@ export interface LyricsPanelProps {
   handleLyricClick: (chunk: LyricChunk, index: number) => void;
   lyricsContainerRef: React.RefObject<HTMLDivElement>;
   formatTime: (seconds: number) => string;
+  currentTime?: number;
 }
 
 const LyricsPanel: React.FC<LyricsPanelProps> = ({
@@ -48,11 +49,42 @@ const LyricsPanel: React.FC<LyricsPanelProps> = ({
   handleLyricClick,
   lyricsContainerRef,
   formatTime,
-}) => (
+  currentTime = 0,
+}) => {
+  const [translations, setTranslations] = React.useState<Record<number, string>>({});
+  const [translating, setTranslating] = React.useState<number | null>(null);
+
+  const translateLine = async (chunk: LyricChunk, index: number) => {
+    setTranslating(index);
+    try {
+      const response = await fetch(`http://localhost:8000/ai/translate?text=${encodeURIComponent(chunk.text)}&target_lang=en`, {
+        method: 'POST',
+      });
+      const data = await response.json();
+      setTranslations({ ...translations, [index]: data.translated_text });
+    } catch (error) {
+      console.error('Translation failed:', error);
+    } finally {
+      setTranslating(null);
+    }
+  };
+
+  const getActiveWordIndex = (chunk: LyricChunk, chunkIndex: number): number => {
+    if (!chunk.words || chunkIndex !== activeChunkIndex) return -1;
+    
+    for (let i = 0; i < chunk.words.length; i++) {
+      const word = chunk.words[i];
+      if (currentTime >= word.timestamp[0] && currentTime <= word.timestamp[1]) {
+        return i;
+      }
+    }
+    return -1;
+  };
+
+  return (
   <div className="flex-1 overflow-hidden">
     {transcriptionResult ? (
       <div>
-        {/* Progress bar for current lyric position */}
         <div className="flex items-center gap-2 mb-2">
           <Info className="h-4 w-4 ml-4 mt-3 text-primary" />
           <span className="text-xs mt-3 text-muted-foreground">
@@ -80,7 +112,6 @@ const LyricsPanel: React.FC<LyricsPanelProps> = ({
                 }`}
                 onClick={() => !isEditMode && handleLyricClick(chunk, index)}
               >
-                {/* Show chunk index and total */}
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-xs font-mono text-muted-foreground/70">#{index + 1}</span>
                   {editingIndex === index && (
@@ -129,13 +160,39 @@ const LyricsPanel: React.FC<LyricsPanelProps> = ({
                 ) : (
                   <>
                     <div className="flex items-start justify-between">
-                      <p className={`leading-relaxed transition-all flex-1 ${
-                        index === activeChunkIndex || index === manuallySelectedChunk
-                          ? 'text-base font-medium' 
-                          : 'text-sm hover:font-medium'
-                      }`}>
-                        {typeof chunk.text === 'string' ? chunk.text.trim() : String(chunk.text || '')}
-                      </p>
+                      {chunk.words && chunk.words.length > 0 ? (
+                        <div className={`leading-relaxed transition-all flex-1 flex flex-wrap gap-1 ${
+                          index === activeChunkIndex || index === manuallySelectedChunk
+                            ? 'text-2xl font-semibold' 
+                            : 'text-lg opacity-40 hover:opacity-60'
+                        }`}>
+                          {chunk.words.map((word: Word, wordIndex: number) => {
+                            const isActiveWord = getActiveWordIndex(chunk, index) === wordIndex;
+                            return (
+                              <span
+                                key={wordIndex}
+                                className={`transition-all duration-200 ${
+                                  isActiveWord
+                                    ? 'text-primary scale-110 font-bold'
+                                    : index === activeChunkIndex || index === manuallySelectedChunk
+                                    ? 'text-foreground'
+                                    : ''
+                                }`}
+                              >
+                                {word.word}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <p className={`leading-relaxed transition-all flex-1 ${
+                          index === activeChunkIndex || index === manuallySelectedChunk
+                            ? 'text-2xl font-semibold' 
+                            : 'text-lg opacity-40 hover:opacity-60'
+                        }`}>
+                          {typeof chunk.text === 'string' ? chunk.text.trim() : String(chunk.text || '')}
+                        </p>
+                      )}
                       {isEditMode && (
                         <div className="flex items-center gap-1 ml-2">
                           <Button
@@ -165,22 +222,44 @@ const LyricsPanel: React.FC<LyricsPanelProps> = ({
                         </div>
                       )}
                     </div>
-                    <div className={`text-xs mt-1 font-mono flex items-center gap-2 ${
+                    {translations[index] && (
+                      <div className="mt-2 p-2 bg-muted/30 rounded text-sm text-muted-foreground italic">
+                        {translations[index]}
+                      </div>
+                    )}
+                    <div className={`text-xs mt-2 font-mono flex items-center justify-between gap-2 ${
                       index === activeChunkIndex || index === manuallySelectedChunk
                         ? 'text-primary/80' 
                         : 'text-muted-foreground/70'
                     }`}>
-                      <Clock className="h-3 w-3" />
-                      {formatTime(chunk.timestamp[0])} - {formatTime(chunk.timestamp[1])}
-                      <span className="text-muted-foreground/50">
-                        ({(chunk.timestamp[1] - chunk.timestamp[0]).toFixed(1)}s)
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-3 w-3" />
+                        {formatTime(chunk.timestamp[0])} - {formatTime(chunk.timestamp[1])}
+                        <span className="text-muted-foreground/50">
+                          ({(chunk.timestamp[1] - chunk.timestamp[0]).toFixed(1)}s)
+                        </span>
+                      </div>
+                      {!isEditMode && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            translateLine(chunk, index);
+                          }}
+                          disabled={translating === index}
+                          className="h-6 px-2 text-xs"
+                        >
+                          <Languages className="h-3 w-3 mr-1" />
+                          {translating === index ? 'Translating...' : 'Translate'}
+                        </Button>
+                      )}
                     </div>
                   </>
                 )}
               </div>
             ))}
-            <div className="h-16"></div> {/* Bottom spacing for better UX */}
+            <div className="h-32"></div>
           </div>
         </div>
       </div>
@@ -205,5 +284,6 @@ const LyricsPanel: React.FC<LyricsPanelProps> = ({
     )}
   </div>
 );
+};
 
 export default LyricsPanel;

@@ -9,6 +9,8 @@ interface TopStatusBarProps {
   audioFile: string | null;
   duration: string;
   version?: string;
+  backendStatus?: 'ok' | 'down' | 'checking';
+  checkBackendHealth: () => void;
 }
 
 const TopStatusBar: React.FC<TopStatusBarProps> = ({
@@ -17,8 +19,14 @@ const TopStatusBar: React.FC<TopStatusBarProps> = ({
   processingStatus,
   audioFile,
   duration,
-  version = "v1.0.0"
+  version = "v1.0.0",
+  backendStatus,
+  checkBackendHealth
 }) => {
+
+  React.useEffect(() => {
+    checkBackendHealth();
+  }, [checkBackendHealth]);
   const getStatusIcon = () => {
     if (isProcessing) {
       return <Activity className="h-4 w-4 text-blue-500 animate-spin" />;
@@ -53,17 +61,41 @@ const TopStatusBar: React.FC<TopStatusBarProps> = ({
     <div className="w-full mb-4">
       <Card className="p-3 bg-background/80 backdrop-blur-sm border-border/50 shadow-sm dark:bg-black/40 dark:border-slate-800/60 dark:shadow-xl">
         <div className="flex items-center justify-between">
-          {/* Left side - Status and Progress */}
           <div className="flex items-center gap-4">
-            {/* Status Indicator */}
             <div className="flex items-center gap-2">
               {getStatusIcon()}
               <span className={`text-sm font-medium ${getStatusColor()}`}>
                 {getStatusText()}
               </span>
+              {typeof backendStatus !== 'undefined' && (
+                <span className="ml-3 flex items-center gap-1 text-xs font-mono">
+                  <span
+                    className={
+                      backendStatus === 'ok'
+                        ? 'w-2 h-2 bg-green-500 rounded-full inline-block'
+                        : backendStatus === 'checking'
+                        ? 'w-2 h-2 bg-yellow-400 rounded-full animate-pulse inline-block'
+                        : 'w-2 h-2 bg-red-500 rounded-full inline-block'
+                    }
+                    title={
+                      backendStatus === 'ok'
+                        ? 'Backend running'
+                        : backendStatus === 'checking'
+                        ? 'Checking backend...'
+                        : 'Backend not reachable'
+                    }
+                  />
+                  <span>
+                    {backendStatus === 'ok'
+                      ? 'API Online'
+                      : backendStatus === 'checking'
+                      ? 'API Checking'
+                      : 'API Offline'}
+                  </span>
+                </span>
+              )}
             </div>
 
-            {/* Audio File Info */}
             {audioFile && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <span className="font-medium">{audioFile}</span>
@@ -76,7 +108,6 @@ const TopStatusBar: React.FC<TopStatusBarProps> = ({
               </div>
             )}
 
-            {/* Progress Bar */}
             {isProcessing && (
               <div className="flex items-center gap-2">
                 <div className="w-32 h-2 bg-muted rounded-full overflow-hidden">
@@ -92,7 +123,6 @@ const TopStatusBar: React.FC<TopStatusBarProps> = ({
             )}
           </div>
 
-          {/* Right side - Version and Status Details */}
           <div className="flex items-center gap-4 text-xs text-muted-foreground">
             <span className="font-mono">{version}</span>
             {isProcessing && (

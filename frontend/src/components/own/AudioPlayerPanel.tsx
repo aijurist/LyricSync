@@ -49,12 +49,10 @@ const AudioPlayerPanel: React.FC<AudioPlayerPanelProps> = ({
   abLoop,
   setAbLoop,
 }) => {
-  // A/B Looping logic
   const setPointA = () => setAbLoop({ a: currentTime, b: abLoop.b });
   const setPointB = () => setAbLoop({ a: abLoop.a, b: currentTime });
   const clearLoop = () => setAbLoop({ a: null, b: null });
 
-  // Show loop status
   const abLoopActive = abLoop.a !== null && abLoop.b !== null && abLoop.b > abLoop.a!;
 
   return (
@@ -78,7 +76,6 @@ const AudioPlayerPanel: React.FC<AudioPlayerPanelProps> = ({
           className="hidden"
         />
 
-        {/* Progress Bar */}
         <div className="mb-2">
           <div 
             className="w-full h-2 bg-muted rounded-full cursor-pointer group relative overflow-hidden"
@@ -95,9 +92,7 @@ const AudioPlayerPanel: React.FC<AudioPlayerPanelProps> = ({
             <span>{formatTime(duration)}</span>
           </div>
         </div>
-        {/* Controls */}
         <div className="relative flex items-center justify-center">
-          {/* Left side controls */}
           <div className="flex items-center gap-3">
             <Button 
               variant="ghost" 
@@ -126,9 +121,7 @@ const AudioPlayerPanel: React.FC<AudioPlayerPanelProps> = ({
             </Button>
           </div>
 
-          {/* Right side controls */}
           <div className="absolute right-0 flex flex-col gap-2">
-            {/* Playback Speed */}
             <div className="flex items-center gap-1">
               <span className="text-xs text-muted-foreground">Speed</span>
               <select
@@ -144,13 +137,11 @@ const AudioPlayerPanel: React.FC<AudioPlayerPanelProps> = ({
                 <option value={2}>2x</option>
               </select>
             </div>
-            {/* A/B Loop Controls */}
             <div className="flex items-center gap-1">
               <Button size="sm" variant="outline" className="px-2 py-1 text-xs" onClick={setPointA} title="Set Loop Start (A)">A</Button>
               <Button size="sm" variant="outline" className="px-2 py-1 text-xs" onClick={setPointB} title="Set Loop End (B)">B</Button>
               <Button size="sm" variant="ghost" className="px-2 py-1 text-xs" onClick={clearLoop} title="Clear Loop"><Repeat className="h-3 w-3" /></Button>
             </div>
-            {/* Loop Status */}
             {abLoopActive && (
               <div className="text-xs text-primary text-right">
                 Loop: {formatTime(abLoop.a!)} - {formatTime(abLoop.b!)}
@@ -158,7 +149,6 @@ const AudioPlayerPanel: React.FC<AudioPlayerPanelProps> = ({
             )}
           </div>
         </div>
-        {/* Download Button */}
         {transcriptionResult && (
           <div className="mt-auto pt-4">
             <Button 
