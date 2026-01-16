@@ -1,6 +1,6 @@
 import React from 'react';
 import { Button } from "@/components/ui/button";
-import { Edit3, X, Plus, Save, Clock, Info, Languages } from "lucide-react";
+import { Edit3, X, Plus, Save, Clock, Info, Languages, Music2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -69,221 +69,224 @@ const LyricsPanel: React.FC<LyricsPanelProps> = ({
     }
   };
 
-  const getActiveWordIndex = (chunk: LyricChunk, chunkIndex: number): number => {
-    if (!chunk.words || chunkIndex !== activeChunkIndex) return -1;
-    
-    for (let i = 0; i < chunk.words.length; i++) {
-      const word = chunk.words[i];
-      if (currentTime >= word.timestamp[0] && currentTime <= word.timestamp[1]) {
-        return i;
-      }
-    }
-    return -1;
-  };
+
 
   return (
-  <div className="flex-1 overflow-hidden">
-    {transcriptionResult ? (
-      <div>
-        <div className="flex items-center gap-2 mb-2">
-          <Info className="h-4 w-4 ml-4 mt-3 text-primary" />
-          <span className="text-xs mt-3 text-muted-foreground">
-            {isEditMode
-              ? editingIndex !== null
-                ? `Editing line ${editingIndex + 1} of ${transcriptionResult.chunks.length}`
-                : `Edit mode: Click the pencil icon to edit a line.`
-              : `Click a lyric line to jump to that moment.`}
-          </span>
-        </div>
-        <div
-          ref={lyricsContainerRef}
-          className="h-full overflow-y-auto px-4 py-4 scroll-smooth"
-          style={{ scrollbarWidth: 'thin' }}
-        >
-          <div className="space-y-2 max-w-none">
-            {transcriptionResult.chunks.map((chunk: LyricChunk, index: number) => (
-              <div
-                id={`lyric-chunk-${index}`}
-                key={index}
-                className={`py-3 px-4 rounded-lg cursor-pointer transition-all duration-300 transform hover:scale-[1.01] ${
-                  index === activeChunkIndex || index === manuallySelectedChunk
-                    ? 'bg-gradient-to-r from-primary/15 to-primary/10 text-primary shadow-md border border-primary/30 scale-[1.02]'
-                    : 'hover:bg-muted/60 text-muted-foreground hover:text-foreground hover:shadow-sm'
-                }`}
-                onClick={() => !isEditMode && handleLyricClick(chunk, index)}
-              >
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-xs font-mono text-muted-foreground/70">#{index + 1}</span>
-                  {editingIndex === index && (
-                    <span className="text-xs text-primary font-semibold">Editing</span>
-                  )}
-                </div>
-                {editingIndex === index ? (
-                  <div className="space-y-3">
-                    <Textarea
-                      value={editText}
-                      onChange={(e) => setEditText(e.target.value)}
-                      className="min-h-[60px] resize-none"
-                      placeholder="Enter lyric text..."
-                    />
-                    <div className="flex gap-2">
-                      <div className="flex-1">
-                        <label className="text-xs text-muted-foreground">Start Time</label>
-                        <Input
-                          value={editStartTime}
-                          onChange={(e) => setEditStartTime(e.target.value)}
-                          placeholder="0:00"
-                          className="h-8 text-sm"
-                        />
+    <div className="flex-1 overflow-hidden h-full flex flex-col">
+      {transcriptionResult ? (
+        <div className="flex-1 flex flex-col h-full">
+          <div className="flex items-center gap-2 px-6 py-2 bg-muted/20 border-b border-black/5 dark:border-white/5">
+            <Info className="h-3.5 w-3.5 text-primary" />
+            <span className="text-xs text-muted-foreground">
+              {isEditMode
+                ? editingIndex !== null
+                  ? `Editing line ${editingIndex + 1} of ${transcriptionResult.chunks.length}`
+                  : `Edit mode unlocked. Poke a line to fix it.`
+                : `Click any line to warp space-time (jump to timestamp).`}
+            </span>
+          </div>
+
+          <div
+            ref={lyricsContainerRef}
+            className="flex-1 overflow-y-auto px-6 py-6 scroll-smooth scrollbar-thin scrollbar-thumb-border/50 scrollbar-track-transparent"
+          >
+            <div className="space-y-6 max-w-4xl mx-auto pb-[50vh]">
+              {transcriptionResult.chunks.map((chunk: LyricChunk, index: number) => {
+                const isActive = index === activeChunkIndex || index === manuallySelectedChunk;
+                // Determine if this chunk is "near" the active one for focus mode fading
+                const isNear = Math.abs(index - activeChunkIndex) <= 2;
+                const opacityClass = isActive ? 'opacity-100 scale-100' : isNear ? 'opacity-70 scale-95 blur-[0.5px]' : 'opacity-40 scale-95 blur-[1px]';
+
+                return (
+                  <div
+                    id={`lyric-chunk-${index}`}
+                    key={index}
+                    className={`group relative p-6 rounded-2xl transition-all duration-700 ease-out border border-transparent ${isActive
+                      ? 'z-10'
+                      : 'hover:bg-black/5 dark:hover:bg-white/5 hover:border-black/5 dark:hover:border-white/5'
+                      } ${opacityClass}`}
+                    onClick={() => !isEditMode && handleLyricClick(chunk, index)}
+                  >
+                    {/* Line Number & Time */}
+                    <div className="flex items-center justify-between mb-3 opacity-80">
+                      <div className="flex items-center gap-3">
+                        <span className={`text-[10px] font-bold tracking-widest px-2 py-1 rounded-full ${isActive ? 'bg-primary text-primary-foreground shadow-sm' : 'bg-black/5 dark:bg-white/5 text-muted-foreground'
+                          }`}>
+                          #{String(index + 1).padStart(2, '0')}
+                        </span>
+                        {editingIndex === index && (
+                          <span className="text-[10px] font-bold text-primary uppercase tracking-wider animate-pulse flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+                            Fixing Typo
+                          </span>
+                        )}
                       </div>
-                      <div className="flex-1">
-                        <label className="text-xs text-muted-foreground">End Time</label>
-                        <Input
-                          value={editEndTime}
-                          onChange={(e) => setEditEndTime(e.target.value)}
-                          placeholder="0:00"
-                          className="h-8 text-sm"
-                        />
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button size="sm" onClick={saveEdit} className="flex-1">
-                        <Save className="h-3 w-3 mr-1" />
-                        Save
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={cancelEdit} className="flex-1">
-                        <X className="h-3 w-3 mr-1" />
-                        Cancel
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <div className="flex items-start justify-between">
-                      {chunk.words && chunk.words.length > 0 ? (
-                        <div className={`leading-relaxed transition-all flex-1 flex flex-wrap gap-1 ${
-                          index === activeChunkIndex || index === manuallySelectedChunk
-                            ? 'text-2xl font-semibold' 
-                            : 'text-lg opacity-40 hover:opacity-60'
+
+                      <div className={`flex items-center gap-1.5 text-[11px] font-mono transition-colors ${isActive ? 'text-primary font-bold' : 'text-muted-foreground'
                         }`}>
-                          {chunk.words.map((word: Word, wordIndex: number) => {
-                            const isActiveWord = getActiveWordIndex(chunk, index) === wordIndex;
-                            return (
-                              <span
-                                key={wordIndex}
-                                className={`transition-all duration-200 ${
-                                  isActiveWord
-                                    ? 'text-primary scale-110 font-bold'
-                                    : index === activeChunkIndex || index === manuallySelectedChunk
-                                    ? 'text-foreground'
-                                    : ''
-                                }`}
+                        <Clock className="h-3 w-3" />
+                        {formatTime(chunk.timestamp[0])}
+                      </div>
+                    </div>
+
+                    {editingIndex === index ? (
+                      <div className="space-y-4 bg-white/60 dark:bg-black/20 p-4 rounded-xl border border-black/10 dark:border-white/10 backdrop-blur-md">
+                        <Textarea
+                          value={editText}
+                          onChange={(e) => setEditText(e.target.value)}
+                          className="min-h-[100px] resize-none text-xl font-medium bg-transparent border-black/10 dark:border-white/10 focus:border-primary/50 transition-all text-foreground"
+                          placeholder="Enter lyric text..."
+                          autoFocus
+                        />
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="text-[10px] uppercase font-bold text-muted-foreground mb-1.5 block tracking-wider">Start Time</label>
+                            <Input
+                              value={editStartTime}
+                              onChange={(e) => setEditStartTime(e.target.value)}
+                              className="h-9 font-mono text-sm bg-black/5 dark:bg-black/20 border-black/10 dark:border-white/10"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] uppercase font-bold text-muted-foreground mb-1.5 block tracking-wider">End Time</label>
+                            <Input
+                              value={editEndTime}
+                              onChange={(e) => setEditEndTime(e.target.value)}
+                              className="h-9 font-mono text-sm bg-black/5 dark:bg-black/20 border-black/10 dark:border-white/10"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex gap-3 pt-2">
+                          <Button size="sm" onClick={saveEdit} className="flex-1 h-9 font-semibold">
+                            <Save className="h-4 w-4 mr-2" />
+                            Lock It In
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={cancelEdit} className="flex-1 h-9 border-black/10 dark:border-white/10 hover:bg-black/5 dark:hover:bg-white/10">
+                            <X className="h-4 w-4 mr-2" />
+                            Nah, Nevermind
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="relative pl-2">
+                        {/* Lyric Text */}
+                        <div className={`text-2xl md:text-3xl leading-snug font-sans tracking-tight transition-colors duration-300 ${isActive
+                          ? 'font-bold text-foreground'
+                          : 'text-muted-foreground/40 font-medium group-hover:text-foreground/80'
+                          }`}>
+                          {chunk.words && chunk.words.length > 0 ? (
+                            <div className="flex flex-wrap gap-x-2.5 gap-y-1">
+                              {chunk.words.map((word: Word, wordIndex: number) => {
+                                // Determine word state
+                                const isPast = currentTime > word.timestamp[1];
+                                const isCurrent = currentTime >= word.timestamp[0] && currentTime <= word.timestamp[1];
+
+                                return (
+                                  <span
+                                    key={wordIndex}
+                                    className={`relative px-0.5 rounded-sm transition-colors duration-200 ${isActive
+                                      ? isCurrent
+                                        ? 'text-foreground scale-100 font-bold' // Current word: bold and primary color
+                                        : isPast
+                                          ? 'text-foreground/90'      // Past words: Highly visible
+                                          : 'text-foreground/30'      // Future words: Dimmed
+                                      : ''
+                                      }`}
+                                  >
+                                    {word.word}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <p>
+                              {typeof chunk.text === 'string' ? chunk.text.trim() : String(chunk.text || '')}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Translation */}
+                        {translations[index] && (
+                          <div className="mt-4 pl-4 border-l-2 border-primary/50 text-base text-foreground/80 italic font-light animate-in slide-in-from-left-2 fade-in">
+                            {translations[index]}
+                          </div>
+                        )}
+
+                        {/* Actions Overlay */}
+                        <div className={`absolute right-0 top-1/2 -translate-y-1/2 flex flex-col gap-2 transition-all duration-300 ${isActive || isEditMode ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4 pointer-events-none'
+                          }`}>
+                          {!isEditMode && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                translateLine(chunk, index);
+                              }}
+                              disabled={translating === index}
+                              className="h-8 px-2 text-xs hover:bg-primary/20 hover:text-primary rounded-full glass-button"
+                            >
+                              <Languages className="h-4 w-4" />
+                            </Button>
+                          )}
+
+                          {isEditMode && (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => startEditing(index)}
+                                className="h-8 w-8 p-0 hover:bg-primary/20 hover:text-primary rounded-full"
+                                title="Edit line"
                               >
-                                {word.word}
-                              </span>
-                            );
-                          })}
+                                <Edit3 className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => addChunk(index)}
+                                className="h-8 w-8 p-0 hover:bg-primary/20 hover:text-primary rounded-full"
+                                title="Insert line below"
+                              >
+                                <Plus className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => deleteChunk(index)}
+                                className="h-8 w-8 p-0 hover:bg-destructive/20 hover:text-destructive rounded-full"
+                                title="Delete line"
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </>
+                          )}
                         </div>
-                      ) : (
-                        <p className={`leading-relaxed transition-all flex-1 ${
-                          index === activeChunkIndex || index === manuallySelectedChunk
-                            ? 'text-2xl font-semibold' 
-                            : 'text-lg opacity-40 hover:opacity-60'
-                        }`}>
-                          {typeof chunk.text === 'string' ? chunk.text.trim() : String(chunk.text || '')}
-                        </p>
-                      )}
-                      {isEditMode && (
-                        <div className="flex items-center gap-1 ml-2">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => startEditing(index)}
-                            className="h-6 w-6 p-0"
-                          >
-                            <Edit3 className="h-3 w-3" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => deleteChunk(index)}
-                            className="h-6 w-6 p-0 text-destructive hover:text-destructive"
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => addChunk(index)}
-                            className="h-6 w-6 p-0 text-primary"
-                          >
-                            <Plus className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                    {translations[index] && (
-                      <div className="mt-2 p-2 bg-muted/30 rounded text-sm text-muted-foreground italic">
-                        {translations[index]}
                       </div>
                     )}
-                    <div className={`text-xs mt-2 font-mono flex items-center justify-between gap-2 ${
-                      index === activeChunkIndex || index === manuallySelectedChunk
-                        ? 'text-primary/80' 
-                        : 'text-muted-foreground/70'
-                    }`}>
-                      <div className="flex items-center gap-2">
-                        <Clock className="h-3 w-3" />
-                        {formatTime(chunk.timestamp[0])} - {formatTime(chunk.timestamp[1])}
-                        <span className="text-muted-foreground/50">
-                          ({(chunk.timestamp[1] - chunk.timestamp[0]).toFixed(1)}s)
-                        </span>
-                      </div>
-                      {!isEditMode && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            translateLine(chunk, index);
-                          }}
-                          disabled={translating === index}
-                          className="h-6 px-2 text-xs"
-                        >
-                          <Languages className="h-3 w-3 mr-1" />
-                          {translating === index ? 'Translating...' : 'Translate'}
-                        </Button>
-                      )}
-                    </div>
-                  </>
-                )}
-              </div>
-            ))}
-            <div className="h-32"></div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
-      </div>
-    ) : (
-      <div className="h-full flex items-center justify-center text-center p-8">
-        <div className="max-w-md">
-          <div className="text-6xl mb-6 opacity-30">🎵</div>
-          <div className="space-y-2">
-            <p className="text-lg font-medium text-foreground">
-              {!isEditMode
-                ? "Ready to sync your lyrics"
-                : "Edit mode: Click the pencil icon to edit a line."}
-            </p>
-            <p className="text-sm text-muted-foreground">
-              {!isEditMode
-                ? "Upload an audio file to get started with AI-powered lyric synchronization"
-                : "You can edit, add, or delete lyric lines and adjust their timestamps."}
+      ) : (
+        <div className="h-full flex flex-col items-center justify-center text-center p-8 bg-muted/5">
+          <div className="w-24 h-24 bg-muted/20 rounded-full flex items-center justify-center mb-6 animate-pulse">
+            <Music2 className="h-10 w-10 text-muted-foreground/50" />
+          </div>
+          <div className="max-w-md space-y-3">
+            <h3 className="text-xl font-semibold text-foreground">
+              Absolute Silence
+            </h3>
+            <p className="text-muted-foreground leading-relaxed">
+              It’s quiet... too quiet. Upload a file to get this party started (or at least synchronized).
             </p>
           </div>
         </div>
-      </div>
-    )}
-  </div>
-);
+      )}
+    </div>
+  );
 };
 
 export default LyricsPanel;

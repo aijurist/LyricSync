@@ -145,7 +145,7 @@ function App() {
       }
     } catch (error) {
       console.error('Error processing audio:', error);
-      
+
       let errorMessage = 'Unknown error occurred';
       if (error instanceof Error) {
         if (error.message.includes('ECONNRESET') || error.message.includes('Failed to fetch')) {
@@ -154,7 +154,7 @@ function App() {
           errorMessage = error.message;
         }
       }
-      
+
       alert(`Error processing audio: ${errorMessage}. Make sure the backend server is running on localhost:8000.`);
     } finally {
       if (progressInterval) clearInterval(progressInterval);
@@ -222,20 +222,20 @@ function App() {
   const handleLyricClick = (chunk: LyricChunk, index: number) => {
     setManuallySelectedChunk(index);
     setActiveChunkIndex(index);
-    
+
     const seekTime = chunk.timestamp[0];
     handleSeek(seekTime);
-    
+
     setTimeout(() => {
       const element = document.getElementById(`lyric-chunk-${index}`);
       if (element && lyricsContainerRef.current) {
-        element.scrollIntoView({ 
-          behavior: 'smooth', 
-          block: 'nearest' 
+        element.scrollIntoView({
+          behavior: 'smooth',
+          block: 'nearest'
         });
       }
     }, 100);
-    
+
     setTimeout(() => {
       setManuallySelectedChunk(-1);
     }, 1000);
@@ -268,12 +268,12 @@ function App() {
   useEffect(() => {
     if (transcriptionResult?.chunks && manuallySelectedChunk === -1) {
       let activeIndex = -1;
-      
+
       for (let i = 0; i < transcriptionResult.chunks.length; i++) {
         const chunk = transcriptionResult.chunks[i];
         const startTime = chunk.timestamp[0];
         const endTime = chunk.timestamp[1];
-        
+
         if (currentTime >= startTime && currentTime <= endTime) {
           activeIndex = i;
           break;
@@ -285,17 +285,17 @@ function App() {
           }
         }
       }
-      
+
       if (activeIndex !== activeChunkIndex) {
         setActiveChunkIndex(activeIndex);
-        
+
         if (activeIndex >= 0) {
           setTimeout(() => {
             const element = document.getElementById(`lyric-chunk-${activeIndex}`);
             if (element && lyricsContainerRef.current) {
-              element.scrollIntoView({ 
-                behavior: 'smooth', 
-                block: 'nearest' 
+              element.scrollIntoView({
+                behavior: 'smooth',
+                block: 'nearest'
               });
             }
           }, 100);
@@ -322,7 +322,7 @@ function App() {
 
   const startEditing = (index: number) => {
     if (!transcriptionResult?.chunks[index]) return;
-    
+
     const chunk = transcriptionResult.chunks[index];
     setEditingIndex(index);
     setEditText(chunk.text);
@@ -333,18 +333,18 @@ function App() {
 
   const saveEdit = () => {
     if (editingIndex === null || !transcriptionResult) return;
-    
+
     const newChunks = [...transcriptionResult.chunks];
     newChunks[editingIndex] = {
       text: editText,
       timestamp: [parseTimeInput(editStartTime), parseTimeInput(editEndTime)]
     };
-    
+
     setTranscriptionResult({
       ...transcriptionResult,
       chunks: newChunks
     });
-    
+
     setEditingIndex(null);
     setEditText('');
     setEditStartTime('');
@@ -362,7 +362,7 @@ function App() {
 
   const deleteChunk = (index: number) => {
     if (!transcriptionResult) return;
-    
+
     const newChunks = transcriptionResult.chunks.filter((_, i) => i !== index);
     setTranscriptionResult({
       ...transcriptionResult,
@@ -372,15 +372,15 @@ function App() {
 
   const addChunk = (index: number) => {
     if (!transcriptionResult) return;
-    
+
     const newChunk: LyricChunk = {
       text: 'New lyric line',
       timestamp: [currentTime, Math.min(currentTime + 5, duration)]
     };
-    
+
     const newChunks = [...transcriptionResult.chunks];
     newChunks.splice(index + 1, 0, newChunk);
-    
+
     setTranscriptionResult({
       ...transcriptionResult,
       chunks: newChunks
@@ -398,7 +398,7 @@ function App() {
 
       const containerRect = containerRef.current.getBoundingClientRect();
       const newLeftWidth = ((e.clientX - containerRect.left) / containerRect.width) * 100;
-      
+
       const clampedWidth = Math.max(20, Math.min(80, newLeftWidth));
       setLeftPanelWidth(clampedWidth);
     };
@@ -435,7 +435,7 @@ function App() {
     lrcContent += '[ar:Unknown Artist]\n';
     lrcContent += '[al:Unknown Album]\n';
     lrcContent += '[by:OpenAI Whisper-X]\n\n';
-    
+
     transcriptionResult.chunks.forEach((chunk: LyricChunk) => {
       const minutes = Math.floor(chunk.timestamp[0] / 60);
       const seconds = (chunk.timestamp[0] % 60).toFixed(2);
@@ -471,145 +471,130 @@ function App() {
   };
 
   return (
-    <div className={`min-h-screen transition-all duration-500 ${
-      darkMode 
-        ? 'bg-gradient-to-br from-black via-slate-900/90 to-black relative overflow-hidden' 
-        : 'bg-gradient-to-br from-background to-muted/20'
-    }`}>
+    <div className={`min-h-screen transition-all duration-700 ${darkMode ? 'bg-background' : 'bg-background'}`}>
+
+      {/* Background Ambience */}
       {darkMode && (
-        <div className="absolute inset-0 opacity-30">
-          <div className="absolute top-0 -left-4 w-96 h-96 bg-blue-600/20 rounded-full mix-blend-multiply filter blur-3xl animate-pulse"></div>
-          <div className="absolute top-0 -right-4 w-96 h-96 bg-purple-600/20 rounded-full mix-blend-multiply filter blur-3xl animate-pulse animation-delay-2000"></div>
-          <div className="absolute -bottom-8 left-20 w-96 h-96 bg-indigo-600/20 rounded-full mix-blend-multiply filter blur-3xl animate-pulse animation-delay-4000"></div>
+        <div className="fixed inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-primary/10 rounded-full blur-[150px] animate-pulse animation-delay-2000" />
+          <div className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] bg-secondary/10 rounded-full blur-[150px] animate-pulse animation-delay-4000" />
+          <div className="absolute top-[40%] left-[40%] w-[40%] h-[40%] bg-accent/5 rounded-full blur-[120px] animate-pulse" />
         </div>
       )}
-      <div ref={containerRef} className="flex h-screen relative">
-                  <div 
-            className={`flex flex-col p-6 min-w-0 transition-all duration-500 ${
-              darkMode 
-                ? 'backdrop-blur-md bg-black/40 border-r border-slate-800/60 shadow-2xl' 
-                : ''
-            }`}
-            style={{ width: `${leftPanelWidth}%` }}
-          >
-          <TopStatusBar
-            isProcessing={isProcessing}
-            processingProgress={processingProgress}
-            processingStatus={getProcessingStatusText()}
-            audioFile={audioFile?.name || null}
-            duration={formatTime(duration)}
-            version="v1.0.0"
-            backendStatus={backendStatus}
-            checkBackendHealth={checkBackendHealth}
-          />
-          
-          <InfoPanel showInfo={showInfo} setShowInfo={setShowInfo} darkMode={darkMode} />
 
-          <FileUploadPanel
-            audioFile={audioFile}
-            isProcessing={isProcessing}
-            transcriptionResult={transcriptionResult}
-            handleFileUpload={handleFileUpload}
-            processAudio={processAudio}
-            fileInputRef={fileInputRef as React.RefObject<HTMLInputElement>}
-            getProcessingStatusText={getProcessingStatusText}
-          />
+      {/* Main Container */}
+      <div ref={containerRef} className="flex h-screen relative z-10 p-4 gap-4 overflow-hidden">
 
-          {audioUrl && (
-            <AudioPlayerPanel
-              audioUrl={audioUrl}
-              audioRef={audioRef as React.RefObject<HTMLAudioElement>}
-              isPlaying={isPlaying}
-              currentTime={currentTime}
-              duration={duration}
-              handlePlayPause={handlePlayPause}
-              handleTimeUpdate={handleTimeUpdate}
-              handleLoadedMetadata={handleLoadedMetadata}
-              handleProgressClick={handleProgressClick}
-              skipBackward={skipBackward}
-              skipForward={skipForward}
-              downloadLRC={downloadLRC}
-              transcriptionResult={transcriptionResult}
-              formatTime={formatTime}
-              playbackRate={playbackRate}
-              setPlaybackRate={setPlaybackRate}
-              abLoop={abLoop}
-              setAbLoop={setAbLoop}
+        {/* Left Sidebar (Glass Panel) */}
+        <div
+          className="flex flex-col min-w-0 glass-panel rounded-2xl transition-all duration-300 relative group/panel bg-white/60 dark:bg-black/40 border-black/5 dark:border-white/10 backdrop-blur-xl shadow-xl"
+          style={{ width: `${leftPanelWidth}%` }}
+        >
+          {/* Top Status Bar integrated into sidebar */}
+          <div className="p-4 pb-0">
+            <TopStatusBar
+              isProcessing={isProcessing}
+              processingProgress={processingProgress}
+              processingStatus={getProcessingStatusText()}
+              audioFile={audioFile}
+              duration={formatTime(duration)}
+              backendStatus={backendStatus}
+              checkBackendHealth={checkBackendHealth}
             />
-          )}
+          </div>
+
+          <div className="mt-4 space-y-4 flex-1 overflow-y-auto px-4 pb-4 scrollbar-hide">
+
+            <InfoPanel showInfo={showInfo} setShowInfo={setShowInfo} />
+
+            <FileUploadPanel
+              audioFile={audioFile}
+              isProcessing={isProcessing}
+              transcriptionResult={transcriptionResult}
+              handleFileUpload={handleFileUpload}
+              processAudio={processAudio}
+              fileInputRef={fileInputRef as React.RefObject<HTMLInputElement>}
+              getProcessingStatusText={getProcessingStatusText}
+            />
+
+            {audioUrl && (
+              <AudioPlayerPanel
+                audioUrl={audioUrl}
+                audioRef={audioRef as React.RefObject<HTMLAudioElement>}
+                isPlaying={isPlaying}
+                currentTime={currentTime}
+                duration={duration}
+                handlePlayPause={handlePlayPause}
+                handleTimeUpdate={handleTimeUpdate}
+                handleLoadedMetadata={handleLoadedMetadata}
+                handleProgressClick={handleProgressClick}
+                skipBackward={skipBackward}
+                skipForward={skipForward}
+                downloadLRC={downloadLRC}
+                transcriptionResult={transcriptionResult}
+                formatTime={formatTime}
+                playbackRate={playbackRate}
+                setPlaybackRate={setPlaybackRate}
+                abLoop={abLoop}
+                setAbLoop={setAbLoop}
+              />
+            )}
+          </div>
         </div>
 
+        {/* Resizer Handle */}
         <div
-          className={`w-1 bg-border hover:bg-primary/50 cursor-col-resize transition-colors relative group ${
-            isDragging ? 'bg-primary' : ''
-          }`}
+          className={`w-1.5 mx-[-3px] z-50 cursor-col-resize flex items-center justify-center group/resizer relative`}
           onMouseDown={handleMouseDown}
         >
-          <div className="absolute inset-y-0 -left-1 -right-1 group-hover:bg-primary/10" />
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-1 h-8 bg-muted-foreground/20 rounded-full group-hover:bg-primary/50 transition-colors" />
+          <div className={`h-16 w-1 rounded-full bg-border transition-colors duration-300 ${isDragging ? 'bg-primary shadow-[0_0_10px_var(--color-primary)]' : 'group-hover/resizer:bg-primary/50'}`} />
         </div>
 
-        <div 
-          className={`border-l min-w-0 transition-all duration-500 ${
-            darkMode 
-              ? 'border-slate-800/60 bg-black/30 backdrop-blur-md shadow-2xl' 
-              : 'border-border bg-muted/10'
-          }`}
+        {/* Right Content Area (Glass Panel) */}
+        <div
+          className="flex-1 min-w-0 glass-panel rounded-2xl flex flex-col transition-all duration-300 overflow-hidden relative bg-white/60 dark:bg-black/40 border-black/5 dark:border-white/10 backdrop-blur-xl shadow-xl"
           style={{ width: `${100 - leftPanelWidth}%` }}
         >
-          <div className="h-full flex flex-col">
-            <div className={`p-4 border-b backdrop-blur-sm transition-all duration-500 ${
-              darkMode 
-                ? 'border-slate-800/60 bg-gradient-to-r from-black/60 to-slate-900/40' 
-                : 'border-border bg-background/50'
-            }`}>
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold flex items-center gap-2">
-                  <div className="p-1 bg-primary/10 rounded">
-                    <Mic className="h-4 w-4 text-primary" />
-                  </div>
-                  Synchronized Lyrics
-                </h2>
-                <div className="flex items-center gap-2">
-                  <button
-                    className="bg-background dark:bg-muted border border-border rounded-full w-8 h-8 flex items-center justify-center shadow hover:bg-primary/10 transition-colors"
-                    onClick={() => setDarkMode((d) => !d)}
-                    title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
-                    aria-label="Toggle dark mode"
-                  >
-                    {darkMode ? (
-                      <Sun className="h-4 w-4 text-yellow-400" />
-                    ) : (
-                      <Moon className="h-4 w-4 text-primary" />
-                    )}
-                  </button>
-                  {transcriptionResult && (
-                    <Button
-                      variant={isEditMode ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setIsEditMode(!isEditMode)}
-                      className="h-8"
-                    >
-                      <Edit3 className="h-3 w-3 mr-1" />
-                      {isEditMode ? "Exit Edit" : "Edit Mode"}
-                    </Button>
-                  )}
-                </div>
+          {/* Header */}
+          <div className="px-6 py-5 border-b border-black/5 dark:border-white/5 flex items-center justify-between bg-white/40 dark:bg-white/5 backdrop-blur-sm">
+            <div className="flex items-center gap-4">
+              <div className="p-2.5 bg-primary/20 rounded-xl shadow-inner ring-1 ring-black/5 dark:ring-white/10">
+                <Mic className="h-5 w-5 text-primary drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]" />
               </div>
-              {transcriptionResult && (
-                <div className="mt-2 space-y-1">
-                  <p className="text-sm text-muted-foreground">
-                    Click any line to jump to that moment • {transcriptionResult.chunks.length} segments
+              <div>
+                <h2 className="text-xl font-bold tracking-tight text-foreground/90">Synchronized Lyrics</h2>
+                {transcriptionResult && (
+                  <p className="text-xs text-muted-foreground font-medium flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-primary/60" />
+                    {transcriptionResult.chunks.length} segments
                   </p>
-                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                    <span>• Auto-scroll enabled</span>
-                    <span>• Word-level timing</span>
-                    <span>• Export as LRC</span>
-                    {isEditMode && <span className="text-primary">• Edit mode active</span>}
-                  </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
+
+            <div className="flex items-center gap-3">
+              {transcriptionResult && (
+                <Button
+                  variant={isEditMode ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setIsEditMode(!isEditMode)}
+                  className={`h-9 px-4 transition-all border-black/10 dark:border-white/10 ${isEditMode ? 'shadow-[0_0_15px_var(--color-primary)] opacity-90' : 'hover:bg-black/5 dark:hover:bg-white/5'}`}
+                >
+                  <Edit3 className="h-3.5 w-3.5 mr-2" />
+                  {isEditMode ? "Done Editing" : "Edit Lyrics"}
+                </Button>
+              )}
+              <button
+                className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-muted-foreground hover:text-foreground ring-1 ring-transparent hover:ring-black/10 dark:hover:ring-white/10"
+                onClick={() => setDarkMode((d) => !d)}
+                title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+              >
+                {darkMode ? <Sun className="h-5 w-5 text-yellow-300" /> : <Moon className="h-5 w-5 text-indigo-400" />}
+              </button>
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-hidden relative">
             <LyricsPanel
               transcriptionResult={transcriptionResult}
               activeChunkIndex={activeChunkIndex}

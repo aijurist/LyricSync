@@ -1,127 +1,82 @@
 import React from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Info, Zap, Globe, Clock } from "lucide-react";
-import ElectricBorder from "@/components/ui/ElectricBorder";
+import { Info, Zap, Globe, Clock, ChevronUp } from "lucide-react";
 
 interface InfoPanelProps {
   showInfo: boolean;
   setShowInfo: (show: boolean) => void;
-  darkMode: boolean;
 }
 
-const InfoPanel: React.FC<InfoPanelProps> = ({ showInfo, setShowInfo, darkMode }) => (
-  <div className="mb-8">
-    <div className="flex items-center gap-4 mb-6">
-              <div className="p-3 bg-gradient-to-br from-primary/20 to-primary/10 rounded-xl shadow-sm dark:from-primary/30 dark:to-primary/20 dark:shadow-lg">
-        <Info className="h-7 w-7 text-primary" />
-      </div>
+const InfoPanel: React.FC<InfoPanelProps> = ({ showInfo, setShowInfo }) => (
+  <div className="w-full">
+    <div className="flex items-center justify-between mb-6">
       <div>
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">
           Lyric Syncer
         </h1>
-        <p className="text-base text-muted-foreground mt-1 font-medium">
-          AI-powered lyric synchronization
+        <p className="text-sm text-muted-foreground mt-1">
+          AI-powered synchronization
         </p>
       </div>
-    </div>
-    <div className="flex items-center gap-3">
-      <Button 
-        variant="outline" 
+      <Button
+        variant="ghost"
         size="sm"
         onClick={() => setShowInfo(!showInfo)}
-        className="text-sm font-medium hover:bg-primary/5 hover:border-primary/50 transition-all duration-200"
+        className="h-8 w-8 p-0 rounded-full hover:bg-muted"
       >
-        <Info className="h-4 w-4 mr-2" />
-        How it works
+        {showInfo ? <ChevronUp className="h-4 w-4" /> : <Info className="h-4 w-4" />}
       </Button>
     </div>
+
     {showInfo && (
-      <div className="mt-4">
-        {darkMode ? (
-          <ElectricBorder
-            color="#00ffff"
-            speed={1.5}
-            chaos={1.2}
-            thickness={8}
-            style={{ borderRadius: 16, padding: '2px' }}
-          >
-                         <Card className="border-0 bg-gradient-to-br from-primary/10 to-primary/5 backdrop-blur-sm shadow-2xl dark:from-primary/20 dark:to-primary/10 dark:shadow-2xl">
-               <CardContent className="p-6 space-y-4">
-                 <div className="flex items-start gap-3">
-                   <div className="p-2 bg-primary/20 rounded-lg flex-shrink-0">
-                     <Zap className="h-5 w-5 text-primary" />
-                   </div>
-                   <div>
-                     <p className="font-semibold text-primary text-base">OpenAI Whisper-X Model</p>
-                     <p className="text-muted-foreground text-sm leading-relaxed">Advanced speech-to-text with precise timestamp alignment</p>
-                   </div>
-                 </div>
-                 <div className="flex items-start gap-3">
-                   <div className="p-2 bg-primary/20 rounded-lg flex-shrink-0">
-                     <Globe className="h-5 w-5 text-primary" />
-                   </div>
-                   <div>
-                     <p className="font-semibold text-primary text-base">Hugging Face Inference</p>
-                     <p className="text-muted-foreground text-sm leading-relaxed">Powered by HF's inference endpoints for reliable processing</p>
-                   </div>
-                 </div>
-                 <div className="flex items-start gap-3">
-                   <div className="p-2 bg-primary/20 rounded-lg flex-shrink-0">
-                     <Clock className="h-5 w-5 text-primary" />
-                   </div>
-                   <div>
-                     <p className="font-semibold text-primary text-base">Word-Level Alignment</p>
-                     <p className="text-muted-foreground text-sm leading-relaxed">Generates precise timestamps for each lyric segment</p>
-                   </div>
-                 </div>
-                 <div className="pt-4 border-t border-primary/20">
-                   <p className="text-sm text-muted-foreground font-medium">
-                     Supports: MP3, WAV, M4A, FLAC • Max: 25MB • Languages: 100+
-                   </p>
-                 </div>
-               </CardContent>
-             </Card>
-          </ElectricBorder>
-        ) : (
-                     <Card className="mt-4 border-2 border-primary/30 bg-gradient-to-br from-primary/10 to-primary/5 shadow-xl dark:border-slate-700/50 dark:from-black/40 dark:to-slate-900/30 dark:shadow-2xl">
-             <CardContent className="p-6 space-y-4">
-               <div className="flex items-start gap-3">
-                 <div className="p-2 bg-primary/20 rounded-lg flex-shrink-0">
-                   <Zap className="h-5 w-5 text-primary" />
-                 </div>
-                 <div>
-                   <p className="font-semibold text-primary text-base">OpenAI Whisper-X Model</p>
-                   <p className="text-muted-foreground text-sm leading-relaxed">Advanced speech-to-text with precise timestamp alignment</p>
-                 </div>
-               </div>
-               <div className="flex items-start gap-3">
-                 <div className="p-2 bg-primary/20 rounded-lg flex-shrink-0">
-                   <Globe className="h-5 w-5 text-primary" />
-                 </div>
-                 <div>
-                   <p className="font-semibold text-primary text-base">Hugging Face Inference</p>
-                   <p className="text-muted-foreground text-sm leading-relaxed">Powered by HF's inference endpoints for reliable processing</p>
-                 </div>
-               </div>
-               <div className="flex items-start gap-3">
-                 <div className="p-2 bg-primary/20 rounded-lg flex-shrink-0">
-                   <Clock className="h-5 w-5 text-primary" />
-                 </div>
-                 <div>
-                   <p className="font-semibold text-primary text-base">Word-Level Alignment</p>
-                   <p className="text-muted-foreground text-sm leading-relaxed">Generates precise timestamps for each lyric segment</p>
-                 </div>
-               </div>
-               <div className="pt-4 border-t border-primary/20">
-                 <p className="text-sm text-muted-foreground font-medium">
-                   Supports: MP3, WAV, M4A, FLAC • Max: 25MB • Languages: 100+
-                 </p>
-               </div>
-             </CardContent>
-           </Card>
-        )}
-      </div>
+      <Card className="border-border/50 bg-background/50 backdrop-blur-sm shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
+        <CardContent className="p-4 space-y-4">
+          <div className="grid gap-4">
+            <div className="flex gap-3">
+              <div className="p-2 bg-primary/10 rounded-lg h-fit">
+                <Zap className="h-4 w-4 text-primary" />
+              </div>
+              <div>
+                <h3 className="font-medium text-sm text-foreground">Whisper-X Model</h3>
+                <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                  Advanced speech-to-text with precise timestamp alignment
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <div className="p-2 bg-primary/10 rounded-lg h-fit">
+                <Globe className="h-4 w-4 text-primary" />
+              </div>
+              <div>
+                <h3 className="font-medium text-sm text-foreground">Hugging Face Inference</h3>
+                <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                  Powered by HF's inference endpoints for reliable processing
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <div className="p-2 bg-primary/10 rounded-lg h-fit">
+                <Clock className="h-4 w-4 text-primary" />
+              </div>
+              <div>
+                <h3 className="font-medium text-sm text-foreground">Word-Level Alignment</h3>
+                <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                  Generates precise timestamps for each lyric segment
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-3 border-t border-border/50">
+            <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider text-center">
+              Supports MP3, WAV, M4A, FLAC • Max 25MB
+            </p>
+          </div>
+        </CardContent>
+      </Card>
     )}
   </div>
 );

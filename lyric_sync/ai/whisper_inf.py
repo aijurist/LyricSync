@@ -1,26 +1,114 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, Query
-from huggingface_hub import InferenceClient
-from lyric_sync.config.envs import settings
 import logging
 import tempfile
 import os
+from typing import List, Dict, Any
+from faster_whisper import WhisperModel
+import torch
+from lyric_sync.config.envs import settings
 
 logger = logging.getLogger(__name__)
 
-client = InferenceClient(
-    provider="fal-ai",
-    api_key=settings.HF_TOKEN,
-)
+# Global model instance (initialized on first request)
+_model = None
+_model_lock = False
+
+def get_whisper_model():
+    """Lazy load the Whisper model to avoid startup delays."""
+    global _model, _model_lock
+    
+    if _model is not None:
+        return _model
+    
+    if _model_lock:
+        # Wait for initialization
+        import time
+        for _ in range(30):  # Wait up to 30 seconds
+            if _model is not None:
+                return _model
+            time.sleep(1)
+        raise RuntimeError("Model initialization timeout")
+    
+    _model_lock = True
+    try:
+        logger.info("Initializing Whisper model (this may take a minute on first run)...")
+        
+        # Determine device and compute type from settings
+        if settings.WHISPER_DEVICE == "auto":
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+        else:
+            device = settings.WHISPER_DEVICE
+        
+        if settings.WHISPER_COMPUTE_TYPE == "auto":
+            compute_type = "float16" if device == "cuda" else "int8"
+        else:
+            compute_type = settings.WHISPER_COMPUTE_TYPE
+        
+        logger.info(f"Using device: {device}, compute_type: {compute_type}")
+        logger.info(f"Model: {settings.WHISPER_MODEL}")
+        
+        # Initialize faster-whisper model
+        _model = WhisperModel(
+            settings.WHISPER_MODEL,
+            device=device,
+            compute_type=compute_type,
+            download_root=None,  # Uses default cache directory
+        )
+        
+        logger.info("Whisper model loaded successfully!")
+        return _model
+    except Exception as e:
+        logger.error(f"Failed to initialize Whisper model: {str(e)}")
+        _model_lock = False
+        raise
+    finally:
+        _model_lock = False
   
 router = APIRouter(prefix="/ai")
 
+def process_segments_to_chunks(segments: List[Any]) -> List[Dict[str, Any]]:
+    """
+    Convert faster-whisper segments to our chunk format with word-level timestamps.
+    """
+    chunks = []
+    
+    for segment in segments:
+        # Extract word-level timestamps if available
+        words = []
+        if hasattr(segment, 'words') and segment.words:
+            for word in segment.words:
+                words.append({
+                    "word": word.word.strip(),
+                    "timestamp": [round(word.start, 2), round(word.end, 2)]
+                })
+        
+        # Create chunk
+        chunk = {
+            "text": segment.text.strip(),
+            "timestamp": [round(segment.start, 2), round(segment.end, 2)]
+        }
+        
+        # Only add words if we have them
+        if words:
+            chunk["words"] = words
+        
+        chunks.append(chunk)
+    
+    return chunks
+
 @router.post("/stt")
 async def stt_endpoint(audio: UploadFile = File(...)):
+    """
+    Speech-to-text endpoint that generates lyrics with word-level timestamps.
+    """
     logger.info(f"Received file: {audio.filename}, content_type: {audio.content_type}, size: {audio.size}")
-    temp_file = None
+    temp_file_path = None
+    
     try:
+        # Read audio file
         audio_bytes = await audio.read()
         file_extension = ".mp3"  # Default to mp3
+        
         if audio.content_type:
             if "wav" in audio.content_type:
                 file_extension = ".wav"
@@ -30,55 +118,121 @@ async def stt_endpoint(audio: UploadFile = File(...)):
                 file_extension = ".ogg"
             elif "webm" in audio.content_type:
                 file_extension = ".webm"
+            elif "m4a" in audio.content_type:
+                file_extension = ".m4a"
         
         # Create temporary file
         with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as temp_file:
             temp_file.write(audio_bytes)
             temp_file_path = temp_file.name
         
-        # Use the file path instead of raw bytes
-        output = client.automatic_speech_recognition(temp_file_path, model="openai/whisper-large-v3")
+        logger.info(f"Saved audio to temp file: {temp_file_path}")
+        
+        from fastapi.concurrency import run_in_threadpool
+        
+        def process_audio_sync():
+            # --- Vocal Isolation Start ---
+            processed_file_path = temp_file_path
+            vocals_path = None
+            
+            try:
+                from audio_separator.separator import Separator
+                
+                logger.info("Initializing audio separator for vocal isolation...")
+                separator = Separator(
+                    output_dir=os.path.dirname(temp_file_path),
+                    output_single_stem="Vocals" 
+                )
+                # Load model (using 'Kim_Vocal_2.onnx' for faster inference on CPU)
+                separator.load_model(model_filename='Kim_Vocal_2.onnx')
+                
+                logger.info(f"Separating vocals from: {temp_file_path}")
+                output_files = separator.separate(temp_file_path)
+                
+                for f in output_files:
+                    if "Vocals" in f:
+                        vocals_path = os.path.join(os.path.dirname(temp_file_path), f)
+                        processed_file_path = vocals_path
+                        break
+                
+                if vocals_path:
+                    logger.info(f"Using isolated vocals for transcription: {vocals_path}")
+                else:
+                    logger.warning("Could not identify vocals file, using original audio.")
 
-        if isinstance(output, dict) and "text" in output:
+            except Exception as sep_error:
+                logger.error(f"Vocal separation failed (falling back to original audio): {sep_error}")
+            # --- Vocal Isolation End ---
+
+            # Get the Whisper model
+            model = get_whisper_model()
+            
+            logger.info("Starting transcription with word-level timestamps...")
+            
+            segments, info = model.transcribe(
+                processed_file_path,
+                beam_size=5,
+                word_timestamps=True,
+                vad_filter=False,
+                language="en",
+                # initial_prompt="This is a song. Transcribe the lyrics accurately. Ignore background noise."
+            )
+            
+            logger.info(f"Detected language: {info.language} (probability: {info.language_probability:.2f})")
+            
+            segments_list = list(segments)
+            chunks = process_segments_to_chunks(segments_list)
+            full_text = " ".join(chunk["text"] for chunk in chunks)
+            
+            logger.info(f"Transcription complete! Generated {len(chunks)} chunks")
+            
+            # Return paths for cleanup along with result
             return {
-                "result": {
-                    "text": output["text"],
-                    "chunks": output.get("chunks", [])
-                }
+                "response": {
+                    "result": {
+                        "text": full_text,
+                        "chunks": chunks
+                    }
+                },
+                "vocals_path": vocals_path
             }
-        else:
-            raise HTTPException(status_code=500, detail="Unexpected response format from Whisper")
+
+        # Run the heavy processing in a thread pool
+        processing_result = await run_in_threadpool(process_audio_sync)
+        
+        # Extract results and cleanup paths
+        vocals_path = processing_result.get("vocals_path")
+        return processing_result["response"]
 
     except Exception as e:
-        logger.error(f"STT Error: {str(e)}")
-        raise HTTPException(status_code=500, detail="Speech-to-text processing failed")
+        logger.error(f"STT Error: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Speech-to-text processing failed: {str(e)}"
+        )
     finally:
-        # Clean up the temporary file
-        if temp_file and os.path.exists(temp_file_path):
-            try:
-                os.unlink(temp_file_path)
-            except Exception as cleanup_error:
-                logger.warning(f"Failed to clean up temporary file: {cleanup_error}")
+        # Clean up files
+        files_to_remove = [temp_file_path]
+        if vocals_path:
+            files_to_remove.append(vocals_path)
+        
+        for f_path in files_to_remove:
+            if f_path and os.path.exists(f_path):
+                try:
+                    os.unlink(f_path)
+                    logger.info(f"Cleaned up file: {f_path}")
+                except Exception as cleanup_error:
+                    logger.warning(f"Failed to clean up file {f_path}: {cleanup_error}")
 
 @router.post("/translate")
 async def translate_text(text: str = Query(...), target_lang: str = Query("en")):
-    try:
-        result = client.translation(
-            text,
-            model="facebook/nllb-200-distilled-600M",
-            src_lang="eng_Latn" if target_lang != "en" else "auto",
-            tgt_lang=f"{target_lang}_Latn"
-        )
-        
-        if isinstance(result, dict) and "translation_text" in result:
-            return {"translated_text": result["translation_text"]}
-        elif isinstance(result, str):
-            return {"translated_text": result}
-        else:
-            raise HTTPException(status_code=500, detail="Invalid translation response")
-    except Exception as e:
-        logger.error(f"Translation Error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+    """
+    Translation endpoint (currently disabled - requires additional dependencies).
+    """
+    raise HTTPException(
+        status_code=501,
+        detail="Translation feature requires additional setup. Please use external translation services."
+    )
     
 @router.post('/test/stt')
 async def test_stt():

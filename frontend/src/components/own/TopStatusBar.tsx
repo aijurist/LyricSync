@@ -3,38 +3,37 @@ import { Card } from "@/components/ui/card";
 import { Activity, CheckCircle, Clock } from "lucide-react";
 
 interface TopStatusBarProps {
+  backendStatus: 'ok' | 'checking' | 'down';
   isProcessing: boolean;
+  audioFile: File | null;
   processingProgress: number;
   processingStatus: string;
-  audioFile: string | null;
   duration: string;
-  version?: string;
-  backendStatus?: 'ok' | 'down' | 'checking';
   checkBackendHealth: () => void;
 }
 
 const TopStatusBar: React.FC<TopStatusBarProps> = ({
+  backendStatus,
   isProcessing,
+  audioFile,
   processingProgress,
   processingStatus,
-  audioFile,
   duration,
-  version = "v1.0.0",
-  backendStatus,
   checkBackendHealth
 }) => {
 
   React.useEffect(() => {
     checkBackendHealth();
   }, [checkBackendHealth]);
+
   const getStatusIcon = () => {
     if (isProcessing) {
-      return <Activity className="h-4 w-4 text-blue-500 animate-spin" />;
+      return <Activity className="h-3.5 w-3.5 text-primary animate-spin" />;
     }
     if (audioFile) {
-      return <CheckCircle className="h-4 w-4 text-green-500" />;
+      return <CheckCircle className="h-3.5 w-3.5 text-green-500" />;
     }
-    return <Clock className="h-4 w-4 text-muted-foreground" />;
+    return <Clock className="h-3.5 w-3.5 text-muted-foreground" />;
   };
 
   const getStatusText = () => {
@@ -44,94 +43,86 @@ const TopStatusBar: React.FC<TopStatusBarProps> = ({
     if (audioFile) {
       return "Ready";
     }
-    return "Ready to process";
+    return "Idle";
   };
 
   const getStatusColor = () => {
     if (isProcessing) {
-      return "text-blue-600 dark:text-blue-400";
+      return "text-primary";
     }
     if (audioFile) {
-      return "text-green-600 dark:text-green-400";
+      return "text-green-500";
     }
     return "text-muted-foreground";
   };
 
   return (
-    <div className="w-full mb-4">
-      <Card className="p-3 bg-background/80 backdrop-blur-sm border-border/50 shadow-sm dark:bg-black/40 dark:border-slate-800/60 dark:shadow-xl">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
+    <div className="w-full">
+      <Card className="p-4 bg-background/50 backdrop-blur-sm border-border/50 shadow-sm">
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              {getStatusIcon()}
-              <span className={`text-sm font-medium ${getStatusColor()}`}>
-                {getStatusText()}
-              </span>
-              {typeof backendStatus !== 'undefined' && (
-                <span className="ml-3 flex items-center gap-1 text-xs font-mono">
-                  <span
-                    className={
-                      backendStatus === 'ok'
-                        ? 'w-2 h-2 bg-green-500 rounded-full inline-block'
-                        : backendStatus === 'checking'
-                        ? 'w-2 h-2 bg-yellow-400 rounded-full animate-pulse inline-block'
-                        : 'w-2 h-2 bg-red-500 rounded-full inline-block'
-                    }
-                    title={
-                      backendStatus === 'ok'
-                        ? 'Backend running'
-                        : backendStatus === 'checking'
-                        ? 'Checking backend...'
-                        : 'Backend not reachable'
-                    }
-                  />
-                  <span>
-                    {backendStatus === 'ok'
-                      ? 'API Online'
-                      : backendStatus === 'checking'
-                      ? 'API Checking'
-                      : 'API Offline'}
-                  </span>
+              <div className={`p-1.5 rounded-full ${isProcessing ? 'bg-primary/10' : 'bg-muted'}`}>
+                {getStatusIcon()}
+              </div>
+              <div className="flex flex-col">
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</span>
+                <span className={`text-sm font-semibold ${getStatusColor()}`}>
+                  {getStatusText()}
                 </span>
-              )}
+              </div>
             </div>
 
-            {audioFile && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <span className="font-medium">{audioFile}</span>
-                {duration && (
-                  <>
-                    <span>•</span>
-                    <span>{duration}</span>
-                  </>
-                )}
-              </div>
-            )}
-
-            {isProcessing && (
-              <div className="flex items-center gap-2">
-                <div className="w-32 h-2 bg-muted rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-gradient-to-r from-blue-500 to-blue-600 rounded-full transition-all duration-300 ease-out"
-                    style={{ width: `${processingProgress}%` }}
-                  />
-                </div>
-                <span className="text-xs font-mono text-muted-foreground min-w-[3rem]">
-                  {Math.round(processingProgress)}%
+            {typeof backendStatus !== 'undefined' && (
+              <div className="flex items-center gap-2 px-2 py-1 rounded-full bg-muted/50 border border-border/50">
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${backendStatus === 'ok'
+                    ? 'bg-green-500'
+                    : backendStatus === 'checking'
+                      ? 'bg-yellow-400 animate-pulse'
+                      : 'bg-red-500'
+                    }`}
+                />
+                <span className="text-xs font-medium text-muted-foreground">
+                  {backendStatus === 'ok'
+                    ? 'Online'
+                    : backendStatus === 'checking'
+                      ? 'Checking'
+                      : 'Offline'}
                 </span>
               </div>
             )}
           </div>
 
-          <div className="flex items-center gap-4 text-xs text-muted-foreground">
-            <span className="font-mono">{version}</span>
-            {isProcessing && (
-              <div className="flex items-center gap-1">
-                <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-                <span>{processingStatus}</span>
-              </div>
-            )}
-          </div>
+          {(audioFile || isProcessing) && (
+            <div className="pt-3 border-t border-border/50 space-y-3">
+              {audioFile && (
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground truncate max-w-[150px]" title={audioFile.name}>
+                    {audioFile.name}
+                  </span>
+                  <span className="font-mono text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded">
+                    {duration}
+                  </span>
+                </div>
+              )}
+
+              {isProcessing && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-primary font-medium">{processingStatus}</span>
+                    <span className="text-muted-foreground font-mono">{Math.round(processingProgress)}%</span>
+                  </div>
+                  <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-primary rounded-full transition-all duration-300 ease-out"
+                      style={{ width: `${processingProgress}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </Card>
     </div>

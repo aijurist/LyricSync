@@ -20,8 +20,8 @@ A full-stack web application that generates synchronized lyrics with word-level 
 
 ### Backend
 - **FastAPI 0.116.1** for API server
-- **OpenAI Whisper** for speech-to-text
-- **Hugging Face Hub** for model inference
+- **faster-whisper** for optimized speech-to-text with word-level timestamps
+- **PyTorch** for model inference
 - **Python 3.8+** runtime
 - **Uvicorn** ASGI server
 
@@ -41,7 +41,7 @@ A full-stack web application that generates synchronized lyrics with word-level 
 ### Prerequisites
 - **Node.js 18+** and npm
 - **Python 3.8+**
-- **Hugging Face API token** ([Get one here](https://huggingface.co/settings/tokens))
+- (Optional) **NVIDIA GPU with CUDA** for faster processing
 
 ### 1. Clone and Setup
 
@@ -58,12 +58,15 @@ python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 
 # Install dependencies
-pip install -r lyric_sync/requirements.txt
+cd lyric_sync
+pip install -r requirements.txt
 
-# Set up environment variables
-echo "HF_TOKEN=your_huggingface_token_here" > .env
+# (Optional) Configure settings
+# Copy env.example to .env and customize model settings
+cp env.example .env
 
-# Start backend server
+# Start backend server (from project root)
+cd ..
 uvicorn lyric_sync.app:app --reload --host 0.0.0.0 --port 8000
 ```
 
@@ -71,6 +74,8 @@ uvicorn lyric_sync.app:app --reload --host 0.0.0.0 --port 8000
 - API: `http://localhost:8000`
 - Docs: `http://localhost:8000/docs`
 - Health: `http://localhost:8000/health`
+
+**Note:** On first run, the Whisper model will be automatically downloaded (~142 MB for base model). This happens once and is cached for future use.
 
 ### 3. Frontend Setup
 
@@ -161,10 +166,7 @@ curl -X POST "http://localhost:8000/ai/stt" \
   -F "audio=@song.mp3"
 ```
 
-**POST `/ai/translate`** - Translate text to English
-```bash
-curl -X POST "http://localhost:8000/ai/translate?text=Bonjour&target_lang=en"
-```
+**POST `/ai/translate`** - Translation (currently disabled, use external services)
 
 **GET `/health`** - Health check
 ```bash
@@ -194,17 +196,22 @@ curl http://localhost:8000/health
 
 ## ⚙️ Configuration
 
-### Environment Variables
+### Environment Variables (Optional)
 ```env
-HF_TOKEN=your_huggingface_token_here  # Required for Whisper inference
+# Model configuration (optional, defaults to "base")
+WHISPER_MODEL=base          # Options: tiny, base, small, medium, large-v2, large-v3
+WHISPER_DEVICE=auto         # Options: auto, cpu, cuda
+WHISPER_COMPUTE_TYPE=auto   # Options: auto, int8, float16, float32
 ```
 
 ### Audio Processing
-- **Model**: OpenAI Whisper Large v3 Turbo
+- **Model**: OpenAI Whisper (faster-whisper implementation)
+- **Default Size**: base (~142 MB, good balance of speed/accuracy)
 - **Languages**: 100+ languages (auto-detection)
 - **Precision**: Word-level timestamps (±0.1s accuracy)
-- **Processing**: 30-60 seconds per file
-- **File Size**: Max 25MB
+- **Processing**: 10-30 seconds per file (faster with GPU)
+- **File Size**: Recommended under 25MB
+- **First Run**: Model downloads automatically and is cached
 
 ## 🎨 Development
 
@@ -224,12 +231,14 @@ npx shadcn@latest add [component-name]
 
 ### Backend (Docker)
 ```dockerfile
-FROM python:3.9-slim
+FROM python:3.10-slim
 WORKDIR /app
 COPY lyric_sync/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY lyric_sync/ ./lyric_sync/
-ENV HF_TOKEN=your_token_here
+# Optional: Pre-configure model settings
+ENV WHISPER_MODEL=base
+ENV WHISPER_DEVICE=auto
 EXPOSE 8000
 CMD ["uvicorn", "lyric_sync.app:app", "--host", "0.0.0.0", "--port", "8000"]
 ```
@@ -261,9 +270,10 @@ node --version  # Should be 18+
 ```
 
 **Audio Processing:**
-- File size < 25MB
+- First run downloads model (~142 MB for base)
 - Clear audio quality works best
-- Valid HF_TOKEN required
+- GPU recommended for faster processing
+- Processing time: ~10-30 seconds per file
 
 ## 🤝 Contributing
 
