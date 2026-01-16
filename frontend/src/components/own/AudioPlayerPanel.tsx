@@ -1,6 +1,6 @@
 import type { TranscriptionResult } from "../../types";
 import React from 'react';
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Play, Pause, SkipBack, SkipForward, Download, Repeat, Volume2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -52,14 +52,15 @@ const AudioPlayerPanel: React.FC<AudioPlayerPanelProps> = ({
 
 
   return (
-    <Card className="flex-1 border-black/10 dark:border-white/10 bg-white/60 dark:bg-black/20 backdrop-blur-md overflow-hidden flex flex-col rounded-3xl">
-      <CardHeader className="pb-4 border-b border-black/5 dark:border-white/5 bg-white/40 dark:bg-white/5">
-        <CardTitle className="text-sm font-semibold tracking-wide flex items-center gap-2 text-foreground/90">
+    <Card className="flex-1 border-t border-x-0 border-b-0 border-white/10 bg-black/5 dark:bg-white/5 backdrop-blur-md rounded-none">
+      <CardHeader className="pb-2 pt-4 px-6">
+        <CardTitle className="text-xs font-bold tracking-widest text-muted-foreground uppercase flex items-center gap-2">
           <Volume2 className="h-4 w-4 text-primary" />
-          PLAYBACK CONTROLS
+          Playback Controls
         </CardTitle>
       </CardHeader>
-      <CardContent className="flex-1 flex flex-col gap-6 p-6">
+
+      <CardContent className="flex flex-col gap-6 p-6 pt-2">
         <audio
           ref={audioRef}
           src={audioUrl}
@@ -73,15 +74,15 @@ const AudioPlayerPanel: React.FC<AudioPlayerPanelProps> = ({
         {/* Progress Bar */}
         <div className="space-y-3">
           <div
-            className="w-full h-3 bg-black/5 dark:bg-white/5 rounded-full cursor-pointer group relative overflow-hidden transition-all"
+            className="w-full h-3 bg-primary/20 dark:bg-primary/30 rounded-full cursor-pointer relative overflow-hidden transition-all"
             onClick={handleProgressClick}
           >
-            <div className="absolute inset-0 bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity" />
             <div
-              className="h-full bg-gradient-to-r from-primary/80 to-primary rounded-full transition-all relative"
+              className="h-full bg-primary rounded-full relative"
               style={{ width: duration ? `${(currentTime / duration) * 100}%` : '0%' }}
             >
-              <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full scale-0 group-hover:scale-110 transition-transform" />
+              {/* Thumb indicator - always visible now but small */}
+              <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2.5 h-2.5 bg-background border-2 border-primary rounded-full shadow-sm" />
             </div>
             {abLoop.a !== null && duration && (
               <div
@@ -94,8 +95,8 @@ const AudioPlayerPanel: React.FC<AudioPlayerPanelProps> = ({
             )}
           </div>
           <div className="flex justify-between text-[11px] font-mono font-medium text-muted-foreground">
-            <span className="bg-black/5 dark:bg-white/5 px-2 py-0.5 rounded text-foreground/70">{formatTime(currentTime)}</span>
-            <span className="bg-black/5 dark:bg-white/5 px-2 py-0.5 rounded text-foreground/70">{formatTime(duration)}</span>
+            <span className="bg-muted/30 px-2 py-0.5 rounded text-foreground/70">{formatTime(currentTime)}</span>
+            <span className="bg-muted/30 px-2 py-0.5 rounded text-foreground/70">{formatTime(duration)}</span>
           </div>
         </div>
 
@@ -105,7 +106,7 @@ const AudioPlayerPanel: React.FC<AudioPlayerPanelProps> = ({
             variant="ghost"
             size="icon"
             onClick={skipBackward}
-            className="h-12 w-12 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-muted-foreground hover:text-foreground transition-all hover:scale-110"
+            className="h-12 w-12 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-all hover:scale-110"
             title="Skip back 10s"
           >
             <SkipBack className="h-6 w-6" />
@@ -114,7 +115,7 @@ const AudioPlayerPanel: React.FC<AudioPlayerPanelProps> = ({
           <Button
             onClick={handlePlayPause}
             size="icon"
-            className="h-20 w-20 rounded-full hover:scale-105 transition-all bg-primary text-primary-foreground border-4 border-white/50 dark:border-black/20"
+            className="h-20 w-20 rounded-full hover:scale-105 transition-all bg-primary text-primary-foreground shadow-lg hover:shadow-primary/20"
           >
             {isPlaying ? <Pause className="h-8 w-8 fill-current" /> : <Play className="h-8 w-8 ml-1 fill-current" />}
           </Button>
@@ -123,7 +124,7 @@ const AudioPlayerPanel: React.FC<AudioPlayerPanelProps> = ({
             variant="ghost"
             size="icon"
             onClick={skipForward}
-            className="h-12 w-12 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-muted-foreground hover:text-foreground transition-all hover:scale-110"
+            className="h-12 w-12 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-all hover:scale-110"
             title="Skip forward 10s"
           >
             <SkipForward className="h-6 w-6" />
@@ -131,12 +132,12 @@ const AudioPlayerPanel: React.FC<AudioPlayerPanelProps> = ({
         </div>
 
         {/* Tools */}
-        <div className="grid grid-cols-2 gap-4 pt-6 border-t border-black/5 dark:border-white/5">
+        <div className="grid grid-cols-2 gap-4 pt-6 border-t border-border/40">
           <div className="flex flex-col gap-2">
             <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Speed</span>
             <div className="relative">
               <select
-                className="w-full appearance-none rounded-lg border border-black/10 dark:border-white/10 bg-white/50 dark:bg-black/20 px-3 py-2 text-xs font-mono text-foreground focus:ring-1 focus:ring-primary focus:border-primary/50 transition-all cursor-pointer hover:bg-black/5 dark:hover:bg-white/5"
+                className="w-full appearance-none rounded-lg border border-border bg-muted/20 px-3 py-2 text-xs font-mono text-foreground focus:ring-1 focus:ring-primary focus:border-primary/50 transition-all cursor-pointer hover:bg-muted/40"
                 value={playbackRate}
                 onChange={e => setPlaybackRate(Number(e.target.value))}
               >
@@ -156,7 +157,7 @@ const AudioPlayerPanel: React.FC<AudioPlayerPanelProps> = ({
               <Button
                 size="sm"
                 variant={abLoop.a !== null ? "default" : "outline"}
-                className={`flex-1 h-8 text-xs font-mono border-black/10 dark:border-white/10 ${abLoop.a !== null ? 'bg-primary text-white' : 'hover:bg-black/5 dark:hover:bg-white/10'}`}
+                className={`flex-1 h-8 text-xs font-mono ${abLoop.a !== null ? 'bg-primary text-primary-foreground' : 'text-foreground border-border hover:bg-muted'}`}
                 onClick={setPointA}
                 title="Set Start"
               >
@@ -165,7 +166,7 @@ const AudioPlayerPanel: React.FC<AudioPlayerPanelProps> = ({
               <Button
                 size="sm"
                 variant={abLoop.b !== null ? "default" : "outline"}
-                className={`flex-1 h-8 text-xs font-mono border-black/10 dark:border-white/10 ${abLoop.b !== null ? 'bg-primary text-white' : 'hover:bg-black/5 dark:hover:bg-white/10'}`}
+                className={`flex-1 h-8 text-xs font-mono ${abLoop.b !== null ? 'bg-primary text-primary-foreground' : 'text-foreground border-border hover:bg-muted'}`}
                 onClick={setPointB}
                 title="Set End"
               >
@@ -174,7 +175,7 @@ const AudioPlayerPanel: React.FC<AudioPlayerPanelProps> = ({
               <Button
                 size="sm"
                 variant="ghost"
-                className="h-8 w-8 px-0 hover:bg-black/5 dark:hover:bg-white/10 text-muted-foreground hover:text-foreground"
+                className="h-8 w-8 px-0 hover:bg-muted text-muted-foreground hover:text-foreground"
                 onClick={clearLoop}
                 title="Clear"
               >

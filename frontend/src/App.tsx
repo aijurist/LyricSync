@@ -2,7 +2,6 @@ import { Sun, Moon } from "lucide-react";
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
 import { Mic, Edit3 } from "lucide-react";
-import TopStatusBar from "@/components/own/TopStatusBar";
 import InfoPanel from "@/components/own/InfoPanel";
 import FileUploadPanel from "@/components/own/FileUploadPanel";
 import AudioPlayerPanel from "@/components/own/AudioPlayerPanel";
@@ -58,19 +57,26 @@ function App() {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10000);
     try {
+      console.log('Checking backend health at http://localhost:8000/health...');
       const res = await fetch('http://localhost:8000/health', { signal: controller.signal });
       clearTimeout(timeout);
+      console.log('Backend health response status:', res.status);
       if (res.ok) {
         const data = await res.json();
+        console.log('Backend health data:', data);
         if (data.status === 'ok') {
+          console.log('Backend is OK');
           setBackendStatus('ok');
         } else {
+          console.warn('Backend returned status not OK:', data);
           setBackendStatus('down');
         }
       } else {
+        console.error('Backend response not OK:', res.statusText);
         setBackendStatus('down');
       }
-    } catch {
+    } catch (e) {
+      console.error('Error checking backend health:', e);
       clearTimeout(timeout);
       setBackendStatus('down');
     }
@@ -182,6 +188,11 @@ function App() {
       audioRef.current.playbackRate = playbackRate;
     }
   }, [playbackRate]);
+
+  // Check backend health on mount
+  useEffect(() => {
+    checkBackendHealth();
+  }, [checkBackendHealth]);
 
   useEffect(() => {
     const audioEl = audioRef.current;
@@ -483,114 +494,132 @@ function App() {
       )}
 
       {/* Main Container */}
-      <div ref={containerRef} className="flex h-screen relative z-10 p-4 gap-4 overflow-hidden">
+      <div
+        ref={containerRef}
+        className="flex h-screen items-stretch overflow-hidden relative z-10 transition-colors duration-700 bg-background"
+      >
+        {/* Subtle Gradient Overlay for Light Mode */}
+        {!darkMode && (
+          <div className="absolute inset-0 z-0 bg-gradient-to-br from-blue-50/50 via-transparent to-cyan-50/30 pointer-events-none" />
+        )}
 
-        {/* Left Sidebar (Glass Panel) */}
+        {/* Left Sidebar */}
         <div
-          className="flex flex-col min-w-0 glass-panel rounded-2xl transition-all duration-300 relative group/panel bg-white/60 dark:bg-black/40 border-black/5 dark:border-white/10 backdrop-blur-xl shadow-xl"
+          className="flex flex-col min-w-[300px] z-20 group/panel bg-muted/10 border-r border-white/5 relative"
           style={{ width: `${leftPanelWidth}%` }}
         >
-          {/* Top Status Bar integrated into sidebar */}
-          <div className="p-4 pb-0">
-            <TopStatusBar
-              isProcessing={isProcessing}
-              processingProgress={processingProgress}
-              processingStatus={getProcessingStatusText()}
-              audioFile={audioFile}
-              duration={formatTime(duration)}
-              backendStatus={backendStatus}
-              checkBackendHealth={checkBackendHealth}
-            />
-          </div>
+          {/* Top Status Bar integrated into sidebar - Removed as per user request to avoid duplicate status bars */}
+          <div className="flex-1 overflow-y-auto p-0 scrollbar-hide">
 
-          <div className="mt-4 space-y-4 flex-1 overflow-y-auto px-4 pb-4 scrollbar-hide">
+            <div className="p-6 space-y-8">
+              <InfoPanel showInfo={showInfo} setShowInfo={setShowInfo} />
 
-            <InfoPanel showInfo={showInfo} setShowInfo={setShowInfo} />
-
-            <FileUploadPanel
-              audioFile={audioFile}
-              isProcessing={isProcessing}
-              transcriptionResult={transcriptionResult}
-              handleFileUpload={handleFileUpload}
-              processAudio={processAudio}
-              fileInputRef={fileInputRef as React.RefObject<HTMLInputElement>}
-              getProcessingStatusText={getProcessingStatusText}
-            />
+              <FileUploadPanel
+                audioFile={audioFile}
+                isProcessing={isProcessing}
+                processingProgress={processingProgress}
+                transcriptionResult={transcriptionResult}
+                handleFileUpload={handleFileUpload}
+                processAudio={processAudio}
+                fileInputRef={fileInputRef as React.RefObject<HTMLInputElement>}
+                getProcessingStatusText={getProcessingStatusText}
+              />
+            </div>
 
             {audioUrl && (
-              <AudioPlayerPanel
-                audioUrl={audioUrl}
-                audioRef={audioRef as React.RefObject<HTMLAudioElement>}
-                isPlaying={isPlaying}
-                currentTime={currentTime}
-                duration={duration}
-                handlePlayPause={handlePlayPause}
-                handleTimeUpdate={handleTimeUpdate}
-                handleLoadedMetadata={handleLoadedMetadata}
-                handleProgressClick={handleProgressClick}
-                skipBackward={skipBackward}
-                skipForward={skipForward}
-                downloadLRC={downloadLRC}
-                transcriptionResult={transcriptionResult}
-                formatTime={formatTime}
-                playbackRate={playbackRate}
-                setPlaybackRate={setPlaybackRate}
-                abLoop={abLoop}
-                setAbLoop={setAbLoop}
-              />
+              <div className="sticky bottom-0 bg-background/80 backdrop-blur-xl border-t border-white/10 z-30">
+                <AudioPlayerPanel
+                  audioUrl={audioUrl}
+                  audioRef={audioRef as React.RefObject<HTMLAudioElement>}
+                  isPlaying={isPlaying}
+                  currentTime={currentTime}
+                  duration={duration}
+                  handlePlayPause={handlePlayPause}
+                  handleTimeUpdate={handleTimeUpdate}
+                  handleLoadedMetadata={handleLoadedMetadata}
+                  handleProgressClick={handleProgressClick}
+                  skipBackward={skipBackward}
+                  skipForward={skipForward}
+                  downloadLRC={downloadLRC}
+                  transcriptionResult={transcriptionResult}
+                  formatTime={formatTime}
+                  playbackRate={playbackRate}
+                  setPlaybackRate={setPlaybackRate}
+                  abLoop={abLoop}
+                  setAbLoop={setAbLoop}
+                />
+              </div>
             )}
           </div>
         </div>
 
         {/* Resizer Handle */}
         <div
-          className={`w-1.5 mx-[-3px] z-50 cursor-col-resize flex items-center justify-center group/resizer relative`}
+          className="w-1 relative z-50 cursor-col-resize flex items-center justify-center group/resizer hover:bg-primary/50 transition-colors delay-75"
           onMouseDown={handleMouseDown}
         >
-          <div className={`h-16 w-1 rounded-full bg-border transition-colors duration-300 ${isDragging ? 'bg-primary shadow-[0_0_10px_var(--color-primary)]' : 'group-hover/resizer:bg-primary/50'}`} />
+          <div className={`absolute w-4 h-full z-10`} /> {/* Hit area */}
+          <div className={`h-full w-[1px] bg-white/10 group-hover/resizer:bg-primary transition-colors ${isDragging ? 'bg-primary' : ''}`} />
         </div>
 
-        {/* Right Content Area (Glass Panel) */}
+        {/* Right Content Area */}
         <div
-          className="flex-1 min-w-0 glass-panel rounded-2xl flex flex-col transition-all duration-300 overflow-hidden relative bg-white/60 dark:bg-black/40 border-black/5 dark:border-white/10 backdrop-blur-xl shadow-xl"
+          className="flex-1 min-w-0 flex flex-col bg-background/40 relative z-0"
           style={{ width: `${100 - leftPanelWidth}%` }}
         >
           {/* Header */}
-          <div className="px-6 py-5 border-b border-black/5 dark:border-white/5 flex items-center justify-between bg-white/40 dark:bg-white/5 backdrop-blur-sm">
+          <div className="px-8 py-5 border-b border-white/5 flex items-center justify-between bg-white/5 backdrop-blur-md">
             <div className="flex items-center gap-4">
-              <div className="p-2.5 bg-primary/20 rounded-xl shadow-inner ring-1 ring-black/5 dark:ring-white/10">
-                <Mic className="h-5 w-5 text-primary drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]" />
+              <div className="p-2 bg-primary/20 rounded-lg">
+                <Mic className="h-5 w-5 text-primary" />
               </div>
               <div>
-                <h2 className="text-xl font-bold tracking-tight text-foreground/90">Synchronized Lyrics</h2>
+                <h2 className="text-lg font-bold tracking-tight text-foreground">Synchronized Lyrics</h2>
                 {transcriptionResult && (
-                  <p className="text-xs text-muted-foreground font-medium flex items-center gap-2">
+                  <p className="text-xs text-muted-foreground font-medium flex items-center gap-2 mt-0.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-primary/60" />
-                    {transcriptionResult.chunks.length} segments
+                    {transcriptionResult.chunks.length} lines
                   </p>
                 )}
               </div>
             </div>
 
             <div className="flex items-center gap-3">
+              {/* Backend Status Indicator */}
+              <div
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition-colors ${backendStatus === 'ok'
+                  ? 'bg-green-500/10 text-green-500 border border-green-500/20'
+                  : backendStatus === 'checking'
+                    ? 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20'
+                    : 'bg-red-500/10 text-red-500 border border-red-500/20'
+                  }`}
+                title={backendStatus === 'ok' ? "Backend Online" : backendStatus === 'checking' ? "Checking connection..." : "Backend Offline - Click to Retry"}
+                onClick={checkBackendHealth}
+                style={{ cursor: 'pointer' }}
+              >
+                <div className={`w-1.5 h-1.5 rounded-full ${backendStatus === 'ok' ? 'bg-green-500 animate-pulse' : backendStatus === 'checking' ? 'bg-yellow-500 animate-bounce' : 'bg-red-500'}`} />
+                {backendStatus === 'ok' ? 'Online' : backendStatus === 'checking' ? 'Checking...' : 'Offline'}
+              </div>
+
               {transcriptionResult && (
                 <Button
-                  variant={isEditMode ? "default" : "outline"}
+                  variant={isEditMode ? "default" : "secondary"}
                   size="sm"
                   onClick={() => setIsEditMode(!isEditMode)}
-                  className={`h-9 px-4 transition-all border-black/10 dark:border-white/10 ${isEditMode ? 'shadow-[0_0_15px_var(--color-primary)] opacity-90' : 'hover:bg-black/5 dark:hover:bg-white/5'}`}
+                  className="h-8 shadow-none font-medium"
                 >
                   <Edit3 className="h-3.5 w-3.5 mr-2" />
-                  {isEditMode ? "Done Editing" : "Edit Lyrics"}
+                  {isEditMode ? "Done" : "Edit"}
                 </Button>
               )}
-              <button
-                className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-muted-foreground hover:text-foreground ring-1 ring-transparent hover:ring-black/10 dark:hover:ring-white/10"
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 rounded-full text-muted-foreground hover:text-foreground"
                 onClick={() => setDarkMode((d) => !d)}
-                title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
               >
-                {darkMode ? <Sun className="h-5 w-5 text-yellow-300" /> : <Moon className="h-5 w-5 text-indigo-400" />}
-              </button>
+                {darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              </Button>
             </div>
           </div>
 
