@@ -47,6 +47,8 @@ Open the app and drop in a song, or click **Try the sample**. The first transcri
 
 The build is a fully static site with relative asset paths. Upload `dist/` to any static host (GitHub Pages, Netlify, Vercel, S3, or a plain folder on a web server).
 
+**Vercel:** import the repo at [vercel.com/new](https://vercel.com/new). `vercel.json` already sets the build, the output directory, and long-term caching for hashed assets, so there's nothing to configure.
+
 ## 🧠 How it works
 
 ```
