@@ -1,291 +1,111 @@
-# 🎵 Lyric Sync
+# 🎵 LyricSync
 
-A full-stack web application that generates synchronized lyrics with word-level precision from audio files using AI transcription. Built with React + TypeScript frontend and FastAPI backend.
+Generate **word-level synced lyrics** from any song, entirely in your browser. LyricSync runs OpenAI's Whisper locally with [Transformers.js](https://huggingface.co/docs/transformers.js), on your GPU via **WebGPU** or on your CPU via WebAssembly. There's no server, and your audio never leaves your device.
 
-![Status](https://img.shields.io/badge/Status-Development-brightgreen)
-![React](https://img.shields.io/badge/React-19.1.1-blue)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.116.1-green)
-![Python](https://img.shields.io/badge/Python-3.8+-yellow)
-![TypeScript](https://img.shields.io/badge/TypeScript-5.8.3-blue)
-
-## 🚀 Tech Stack
-
-### Frontend
-- **React 19.1.1** with TypeScript
-- **Vite** for build tooling
-- **Tailwind CSS** for styling
-- **shadcn/ui** component library
-- **Wavesurfer.js** for audio visualization
-- **Lucide React** for icons
-
-### Backend
-- **FastAPI 0.116.1** for API server
-- **faster-whisper** for optimized speech-to-text with word-level timestamps
-- **PyTorch** for model inference
-- **Python 3.8+** runtime
-- **Uvicorn** ASGI server
+![React](https://img.shields.io/badge/React-19-blue)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.8-blue)
+![Transformers.js](https://img.shields.io/badge/Transformers.js-4-yellow)
+![On-device](https://img.shields.io/badge/runs-100%25%20on--device-brightgreen)
 
 ## ✨ Features
 
-- **Word-level lyric synchronization** with millisecond precision
-- **Real-time audio playback** with interactive lyrics
-- **Multi-language support** (100+ languages)
-- **Translation capabilities** for non-English lyrics
-- **LRC file export** for karaoke applications
-- **Dark/light theme** support
-- **Responsive design** with resizable panels
-- **Audio format support**: MP3, WAV, M4A, FLAC, OGG
+- **On-device transcription.** Whisper (tiny/base/small) runs in a Web Worker on WebGPU, falling back to WASM. Models download once and are cached, so it works offline after that.
+- **Word-level timing.** Each word is highlighted as it's sung, and you can click any word or line to jump to it.
+- **Smart line splitting.** Words are grouped into lyric lines using pauses, punctuation and length limits, and `[Music]`/`♪` noise is dropped.
+- **Waveform player** with speed control, volume, A-B looping and smooth (per-frame) highlighting.
+- **Editor**:
+  - Fix text and times inline, and set a time from the current playback position with one click.
+  - Insert or delete lines.
+  - Shift all timings with a global offset (±0.1 s).
+  - Full **undo/redo**.
+- **Autosave.** Edits are kept in your browser, keyed to the audio file, so reopening the same file restores them.
+- **Import** existing `.lrc`, `.srt`, `.vtt` or `.json` lyrics to re-time or fix them.
+- **Export** to LRC, **Enhanced LRC** (word-level karaoke), SRT, WebVTT, plain text or JSON, or copy LRC to the clipboard.
+- **Keyboard shortcuts** for everything (press `?` in the app).
+- Drag-and-drop anywhere, a dark/light theme, and a responsive layout down to phone size.
 
-## 🛠️ Development Setup
+## 🚀 Getting started
 
-### Prerequisites
-- **Node.js 18+** and npm
-- **Python 3.8+**
-- (Optional) **NVIDIA GPU with CUDA** for faster processing
-
-### 1. Clone and Setup
-
-```bash
-git clone https://github.com/yourusername/lyric_sync.git
-cd lyric_sync
-```
-
-### 2. Backend Setup
+Requires **Node.js 18+**.
 
 ```bash
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
-cd lyric_sync
-pip install -r requirements.txt
-
-# (Optional) Configure settings
-# Copy env.example to .env and customize model settings
-cp env.example .env
-
-# Start backend server (from project root)
-cd ..
-uvicorn lyric_sync.app:app --reload --host 0.0.0.0 --port 8000
-```
-
-**Backend will be available at:**
-- API: `http://localhost:8000`
-- Docs: `http://localhost:8000/docs`
-- Health: `http://localhost:8000/health`
-
-**Note:** On first run, the Whisper model will be automatically downloaded (~142 MB for base model). This happens once and is cached for future use.
-
-### 3. Frontend Setup
-
-```bash
-# Install dependencies
-cd frontend
 npm install
-
-# Start development server
-npm run dev
+npm run dev        # http://localhost:5173
 ```
 
-**Frontend will be available at:** `http://localhost:5173`
+Open the app and drop in a song, or click **Try the sample**. The first transcription downloads the chosen model from the Hugging Face Hub (~60–400 MB depending on size). Later runs load it from the browser cache.
 
-### 4. Development Scripts
+| Script               | What it does                       |
+| -------------------- | ---------------------------------- |
+| `npm run dev`        | Start the dev server               |
+| `npm run build`      | Type-check and build to `dist/`    |
+| `npm run preview`    | Serve the production build         |
+| `npm test`           | Run unit tests (Vitest)            |
+| `npm run lint`       | Lint with ESLint                   |
 
-**Backend:**
-```bash
-# Run with auto-reload
-uvicorn lyric_sync.app:app --reload
+### Deploying
 
-# Run with custom settings
-uvicorn lyric_sync.app:app --reload --host 0.0.0.0 --port 8000 --timeout-keep-alive 75
-```
+The build is a fully static site with relative asset paths. Upload `dist/` to any static host (GitHub Pages, Netlify, Vercel, S3, or a plain folder on a web server).
 
-**Frontend:**
-```bash
-npm run dev      # Development server
-npm run build    # Production build
-npm run preview  # Preview production build
-npm run lint     # Run ESLint
-```
-
-## 📖 Usage
-
-1. **Upload Audio**: Select an audio file (MP3, WAV, M4A, FLAC, OGG, max 25MB)
-2. **Sync Lyrics**: Click "Sync Lyrics with AI" to process with Whisper
-3. **Play & Interact**: 
-   - Words highlight in real-time during playback
-   - Click any lyric to jump to that moment
-   - Use playback controls (speed, loop, seek)
-4. **Edit & Export**: 
-   - Edit lyrics and timestamps manually
-   - Translate non-English lyrics
-   - Export as LRC file for karaoke apps
-
-## 🏗️ Project Structure
+## 🧠 How it works
 
 ```
-lyric_sync/
-├── frontend/                     # React + TypeScript frontend
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── own/             # Custom components
-│   │   │   │   ├── AudioPlayerPanel.tsx
-│   │   │   │   ├── FileUploadPanel.tsx
-│   │   │   │   ├── InfoPanel.tsx
-│   │   │   │   ├── LyricsPanel.tsx
-│   │   │   │   └── TopStatusBar.tsx
-│   │   │   └── ui/              # shadcn/ui components
-│   │   ├── lib/
-│   │   │   └── utils.ts         # Utility functions
-│   │   ├── App.tsx              # Main application component
-│   │   ├── types.ts             # TypeScript type definitions
-│   │   └── main.tsx             # Application entry point
-│   ├── package.json             # Frontend dependencies
-│   ├── vite.config.ts           # Vite configuration
-│   └── tailwind.config.js       # Tailwind CSS config
-├── lyric_sync/                  # FastAPI backend
-│   ├── ai/
-│   │   ├── __init__.py
-│   │   └── whisper_inf.py      # Whisper AI inference
-│   ├── config/
-│   │   └── envs.py             # Environment configuration
-│   ├── app.py                  # FastAPI application entry
-│   └── requirements.txt        # Python dependencies
-└── README.md
+audio file ──► decode + resample to 16 kHz mono (Web Audio, main thread)
+           ──► Web Worker: Whisper via Transformers.js / ONNX Runtime (WebGPU or WASM)
+                 30 s windows with 5 s overlap, return_timestamps: 'word'
+           ──► segment words into lyric lines (pauses, punctuation, length)
+           ──► play, edit, export, all in the browser
 ```
 
-## 🔌 API Reference
+| Model | Download  | Notes                              |
+| ----- | --------- | ---------------------------------- |
+| Tiny  | ~60 MB    | Fastest; fine for clear vocals     |
+| Base  | ~120 MB   | Default; good balance              |
+| Small | ~400 MB   | Most accurate; best with WebGPU    |
 
-### Core Endpoints
+The models are the `onnx-community/whisper-*_timestamped` exports, which include the cross-attention outputs needed for word timing. If a model can't provide word timing, LyricSync falls back to segment timestamps and estimates word positions.
 
-**POST `/ai/stt`** - Speech-to-text with word-level timestamps
-```bash
-curl -X POST "http://localhost:8000/ai/stt" \
-  -H "Content-Type: multipart/form-data" \
-  -F "audio=@song.mp3"
+**Browser support:** WebGPU acceleration works in recent Chrome and Edge, and in Safari 26+. Other browsers use the WASM backend, which is slower but works everywhere.
+
+**Tips for accuracy:** Whisper is trained on speech, so heavily produced mixes are harder. Pick the song's language instead of auto-detect, and try the Small model on WebGPU. Vocal-heavy or acoustic tracks give the best results.
+
+## ⌨️ Shortcuts
+
+| Key                 | Action                     |
+| ------------------- | -------------------------- |
+| `Space`             | Play / pause               |
+| `←` / `→`           | Seek 5 s                   |
+| `Shift` + `←` / `→` | Previous / next line       |
+| `↑` / `↓`           | Volume                     |
+| `M`                 | Mute                       |
+| `E`                 | Toggle edit mode           |
+| `F`                 | Toggle auto-scroll         |
+| `[` / `]`           | Shift all lyrics ±0.1 s    |
+| `Ctrl/⌘ + Z`        | Undo (`+ Shift` to redo)   |
+
+## 🏗️ Project structure
+
 ```
-
-**POST `/ai/translate`** - Translation (currently disabled, use external services)
-
-**GET `/health`** - Health check
-```bash
-curl http://localhost:8000/health
+src/
+├── App.tsx                    # Layout, state wiring, shortcuts, drag & drop
+├── workers/
+│   ├── transcriber.worker.ts  # Whisper inference (Transformers.js)
+│   └── protocol.ts            # Worker message types
+├── hooks/
+│   ├── useTranscriber.ts      # Drives the worker, progress, cancel
+│   ├── useAudioPlayer.ts      # Playback state, rAF time sampling, A-B loop
+│   ├── useHistory.ts          # Undo / redo
+│   └── useTheme.ts, useWebGPU.ts
+├── lib/
+│   ├── audio.ts               # Decode + resample to 16 kHz mono
+│   ├── segment.ts             # Words → lyric lines
+│   ├── lyrics.ts              # Active line lookup, edits, offset shifting
+│   ├── formats.ts             # LRC / SRT / VTT / TXT / JSON import & export
+│   ├── models.ts, languages.ts, storage.ts, time.ts
+│   └── __tests__/             # Vitest unit tests
+└── components/own/            # Upload panel, player, waveform, lyrics, toolbar…
 ```
-
-**GET `/docs`** - Interactive API documentation (Swagger UI)
-
-### Response Format
-```json
-{
-  "result": {
-    "text": "Full transcription",
-    "chunks": [
-      {
-        "text": "I look up from the ground",
-        "timestamp": [0, 2.5],
-        "words": [
-          {"word": "I", "timestamp": [0, 0.2]},
-          {"word": "look", "timestamp": [0.2, 0.6]}
-        ]
-      }
-    ]
-  }
-}
-```
-
-## ⚙️ Configuration
-
-### Environment Variables (Optional)
-```env
-# Model configuration (optional, defaults to "base")
-WHISPER_MODEL=base          # Options: tiny, base, small, medium, large-v2, large-v3
-WHISPER_DEVICE=auto         # Options: auto, cpu, cuda
-WHISPER_COMPUTE_TYPE=auto   # Options: auto, int8, float16, float32
-```
-
-### Audio Processing
-- **Model**: OpenAI Whisper (faster-whisper implementation)
-- **Default Size**: base (~142 MB, good balance of speed/accuracy)
-- **Languages**: 100+ languages (auto-detection)
-- **Precision**: Word-level timestamps (±0.1s accuracy)
-- **Processing**: 10-30 seconds per file (faster with GPU)
-- **File Size**: Recommended under 25MB
-- **First Run**: Model downloads automatically and is cached
-
-## 🎨 Development
-
-### Frontend Customization
-- **Styling**: Tailwind CSS with dark/light mode
-- **Components**: shadcn/ui component library
-- **Icons**: Lucide React
-- **Audio**: Wavesurfer.js for visualization
-
-### Adding Components
-```bash
-cd frontend
-npx shadcn@latest add [component-name]
-```
-
-## 🚀 Deployment
-
-### Backend (Docker)
-```dockerfile
-FROM python:3.10-slim
-WORKDIR /app
-COPY lyric_sync/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-COPY lyric_sync/ ./lyric_sync/
-# Optional: Pre-configure model settings
-ENV WHISPER_MODEL=base
-ENV WHISPER_DEVICE=auto
-EXPOSE 8000
-CMD ["uvicorn", "lyric_sync.app:app", "--host", "0.0.0.0", "--port", "8000"]
-```
-
-### Frontend
-```bash
-cd frontend
-npm run build
-# Deploy dist/ folder to Vercel, Netlify, or any static host
-```
-
-### Cloud Platforms
-- **Railway/Render**: Direct GitHub integration
-- **Vercel**: Frontend + serverless functions
-- **AWS/Azure/GCP**: Container deployment
-
-## 🔍 Troubleshooting
-
-**Backend Issues:**
-```bash
-curl http://localhost:8000/health  # Check if running
-echo $HF_TOKEN                     # Verify token
-```
-
-**Frontend Issues:**
-```bash
-rm -rf node_modules package-lock.json && npm install  # Clear cache
-node --version  # Should be 18+
-```
-
-**Audio Processing:**
-- First run downloads model (~142 MB for base)
-- Clear audio quality works best
-- GPU recommended for faster processing
-- Processing time: ~10-30 seconds per file
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create feature branch: `git checkout -b feature/amazing-feature`
-3. Make changes and commit: `git commit -m 'Add amazing feature'`
-4. Push and open Pull Request
 
 ## 📄 License
 
-MIT License - see [LICENSE](LICENSE) file for details.
-
----
-
-**Made with ❤️ for music lovers and developers**
+MIT
