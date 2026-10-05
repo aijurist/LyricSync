@@ -10,6 +10,11 @@ Generate **word-level synced lyrics** from any song, entirely in your browser. L
 ## ✨ Features
 
 - **On-device transcription.** Whisper (tiny/base/small) runs in a Web Worker on WebGPU, falling back to WASM. Models download once and are cached, so it works offline after that.
+- **Three ways to sync:**
+  - **Generate:** Whisper transcribes the song from scratch.
+  - **Sync my lyrics with AI (most accurate):** paste the real lyrics and Whisper only supplies the timing. Your words are matched to what the AI heard by spelling *and sound* (phonetic keys), so misheard words like "grand" for "ground" still land correctly, and words it missed entirely are interpolated.
+  - **Quick sync (no AI):** a pure signal-processing aligner. It finds sung-syllable onsets with a vocal-band spectral-flux detector, estimates syllables in your lyrics, and fits one to the other with dynamic programming. It needs no download and takes a couple of seconds, but the timing is rougher.
+- **Accuracy helpers:** Whisper Large v3 Turbo on WebGPU, vocal-band audio cleanup (high-pass, presence boost, normalisation), and removal of common Whisper hallucinations ("Thanks for watching…") and runaway repeats.
 - **Word-level timing.** Each word is highlighted as it's sung, and you can click any word or line to jump to it.
 - **Smart line splitting.** Words are grouped into lyric lines using pauses, punctuation and length limits, and `[Music]`/`♪` noise is dropped.
 - **Waveform player** with speed control, volume, A-B looping and smooth (per-frame) highlighting.
@@ -63,13 +68,14 @@ audio file ──► decode + resample to 16 kHz mono (Web Audio, main thread)
 | ----- | --------- | ---------------------------------- |
 | Tiny  | ~60 MB    | Fastest; fine for clear vocals     |
 | Base  | ~120 MB   | Default; good balance              |
-| Small | ~400 MB   | Most accurate; best with WebGPU    |
+| Small | ~400 MB   | Good; best choice without a GPU    |
+| Large v3 Turbo | ~1 GB | Most accurate by far; needs WebGPU (default when available) |
 
 The models are the `onnx-community/whisper-*_timestamped` exports, which include the cross-attention outputs needed for word timing. If a model can't provide word timing, LyricSync falls back to segment timestamps and estimates word positions.
 
 **Browser support:** WebGPU acceleration works in recent Chrome and Edge, and in Safari 26+. Other browsers use the WASM backend, which is slower but works everywhere.
 
-**Tips for accuracy:** Whisper is trained on speech, so heavily produced mixes are harder. Pick the song's language instead of auto-detect, and try the Small model on WebGPU. Vocal-heavy or acoustic tracks give the best results.
+**Tips for accuracy:** Whisper is trained on speech, so sung vocals over a full mix are hard for any model. For correct words, paste the real lyrics and use **Sync my lyrics with AI**. Otherwise, pick the song's language instead of auto-detect and use Large v3 Turbo.
 
 ## ⌨️ Shortcuts
 
@@ -92,6 +98,7 @@ src/
 ├── App.tsx                    # Layout, state wiring, shortcuts, drag & drop
 ├── workers/
 │   ├── transcriber.worker.ts  # Whisper inference (Transformers.js)
+│   ├── quicksync.worker.ts    # Model-free sync off the main thread
 │   └── protocol.ts            # Worker message types
 ├── hooks/
 │   ├── useTranscriber.ts      # Drives the worker, progress, cancel
@@ -100,7 +107,9 @@ src/
 │   └── useTheme.ts, useWebGPU.ts
 ├── lib/
 │   ├── audio.ts               # Decode + resample to 16 kHz mono
-│   ├── segment.ts             # Words → lyric lines
+│   ├── segment.ts             # Words → lyric lines, hallucination cleanup
+│   ├── align.ts, phonetic.ts  # Align pasted lyrics to AI timing (spelling + sound)
+│   ├── quicksync.ts, syllables.ts  # Model-free onset detection + DP alignment
 │   ├── lyrics.ts              # Active line lookup, edits, offset shifting
 │   ├── formats.ts             # LRC / SRT / VTT / TXT / JSON import & export
 │   ├── models.ts, languages.ts, storage.ts, time.ts

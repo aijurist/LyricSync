@@ -6,6 +6,8 @@ export type WorkerRequest = {
   type: 'transcribe';
   audio: Float32Array;
   repo: string;
+  fallbackRepo: string;
+  dtype: { webgpu: string | Record<string, string>; wasm: string | Record<string, string> };
   /** ISO code, or null to auto-detect */
   language: string | null;
 };

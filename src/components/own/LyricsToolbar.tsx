@@ -46,6 +46,19 @@ const LyricsToolbar: React.FC<LyricsToolbarProps> = ({
           {languageName(meta.language)}
         </span>
       )}
+      {meta?.source === 'ai+lyrics' && (
+        <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-semibold uppercase tracking-wider">
+          Your lyrics · AI timing
+        </span>
+      )}
+      {meta?.source === 'quick' && (
+        <span
+          className="px-2 py-0.5 rounded-full bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 text-[10px] font-semibold uppercase tracking-wider"
+          title="Synced by signal analysis without AI, so timing is approximate"
+        >
+          Quick sync
+        </span>
+      )}
       {meta?.model && (
         <span className="px-2 py-0.5 rounded-full bg-muted border text-[10px] font-semibold uppercase tracking-wider">
           Whisper {meta.model}

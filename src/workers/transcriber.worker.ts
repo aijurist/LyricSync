@@ -25,13 +25,12 @@ async function hasWebGPU(): Promise<boolean> {
   }
 }
 
-function loadPipeline(repo: string, device: Device) {
+type ModelRequest = Pick<WorkerRequest, 'repo' | 'fallbackRepo' | 'dtype'>;
+
+function loadPipeline(repo: string, device: Device, dtype: ModelRequest['dtype']) {
   return pipeline('automatic-speech-recognition', repo, {
     device,
-    dtype:
-      device === 'webgpu'
-        ? { encoder_model: 'fp32', decoder_model_merged: 'q4' }
-        : { encoder_model: 'fp32', decoder_model_merged: 'q8' },
+    dtype: dtype[device] as never,
     progress_callback: (info: ProgressInfo) => {
       if (info.status === 'progress_total') {
         post({ type: 'download', progress: info.progress / 100, loaded: info.loaded, total: info.total });
@@ -40,7 +39,19 @@ function loadPipeline(repo: string, device: Device) {
   });
 }
 
-async function getTranscriber(repo: string): Promise<{ transcriber: Transcriber; device: Device }> {
+/** Load the word-timing export, falling back to the plain export if it isn't available. */
+async function loadModel(model: ModelRequest, device: Device): Promise<Transcriber> {
+  try {
+    return await loadPipeline(model.repo, device, model.dtype);
+  } catch (err) {
+    if (!/404|not found|could not locate/i.test(String((err as Error)?.message ?? err))) throw err;
+    console.warn(`${model.repo} unavailable, using ${model.fallbackRepo}`, err);
+    return loadPipeline(model.fallbackRepo, device, model.dtype);
+  }
+}
+
+async function getTranscriber(model: ModelRequest): Promise<{ transcriber: Transcriber; device: Device }> {
+  const repo = model.repo;
   if (loaded?.repo === repo) return loaded;
   post({ type: 'status', status: 'loading' });
 
@@ -50,13 +61,13 @@ async function getTranscriber(repo: string): Promise<{ transcriber: Transcriber;
   let device: Device = (await hasWebGPU()) ? 'webgpu' : 'wasm';
   let transcriber: Transcriber;
   try {
-    transcriber = await loadPipeline(repo, device);
+    transcriber = await loadModel(model, device);
   } catch (err) {
     if (device !== 'webgpu') throw err;
     // Some GPUs/drivers fail to initialise; the CPU backend always works
     console.warn('WebGPU initialisation failed, falling back to WASM', err);
     device = 'wasm';
-    transcriber = await loadPipeline(repo, device);
+    transcriber = await loadModel(model, device);
   }
   loaded = { repo, device, transcriber };
   return loaded;
@@ -88,7 +99,7 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
   if (request.type !== 'transcribe') return;
 
   try {
-    const { transcriber, device } = await getTranscriber(request.repo);
+    const { transcriber, device } = await getTranscriber(request);
     post({ type: 'status', status: 'transcribing', device });
 
     const options = {

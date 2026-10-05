@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Upload, Zap, Music, FileAudio, FileText, X, RotateCcw, Sparkles } from 'lucide-react';
+import { Upload, Zap, Music, FileAudio, FileText, X, RotateCcw, Sparkles, ChevronDown, Wand2, AudioWaveform } from 'lucide-react';
 import type { TranscribeOptions } from '@/types';
 import type { JobState } from '@/hooks/useTranscriber';
 import { LANGUAGES } from '@/lib/languages';
@@ -9,6 +9,7 @@ import { MODELS, type ModelSize } from '@/lib/models';
 import { formatTime } from '@/lib/time';
 import { cn } from '@/lib/utils';
 import { isLyricsFile } from '@/lib/files';
+import { parseLyricsText } from '@/lib/align';
 
 interface FileUploadPanelProps {
   audioFile: File | null;
@@ -20,7 +21,11 @@ interface FileUploadPanelProps {
   onImportLyrics: (file: File) => void;
   onLoadSample: () => void;
   onTranscribe: () => void;
+  onQuickSync: () => void;
   onCancel: () => void;
+  lyrics: string;
+  setLyrics: (lyrics: string) => void;
+  webgpu: boolean | null;
 }
 
 function useElapsed(active: boolean, startedAt: number) {
@@ -38,6 +43,7 @@ const PHASE_LABELS = {
   decoding: 'Decoding audio…',
   loading: 'Downloading model (one-time)…',
   transcribing: 'Transcribing on your device…',
+  syncing: 'Aligning lyrics to the audio…',
 };
 
 const FileUploadPanel: React.FC<FileUploadPanelProps> = ({
@@ -50,11 +56,17 @@ const FileUploadPanel: React.FC<FileUploadPanelProps> = ({
   onImportLyrics,
   onLoadSample,
   onTranscribe,
+  onQuickSync,
   onCancel,
+  lyrics,
+  setLyrics,
+  webgpu,
 }) => {
   const audioInputRef = useRef<HTMLInputElement>(null);
   const lyricsInputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [showLyrics, setShowLyrics] = useState(() => !!lyrics);
+  const hasPastedLyrics = lyrics.trim().length > 0;
   const busy = job.phase !== 'idle';
   const elapsed = useElapsed(busy, job.startedAt);
 
@@ -201,11 +213,55 @@ const FileUploadPanel: React.FC<FileUploadPanelProps> = ({
               >
                 {MODELS.map((m) => (
                   <option key={m.id} value={m.id}>
-                    {m.label} ({m.download})
+                    {m.label} ({m.download}){m.needsGPU && webgpu === false ? ' – needs GPU' : ''}
                   </option>
                 ))}
               </select>
             </label>
+          </div>
+
+          <label
+            className="flex items-center gap-2 text-xs text-foreground cursor-pointer"
+            title="Cuts bass and rumble below the vocal range and evens out loudness before analysis"
+          >
+            <input
+              type="checkbox"
+              className="accent-[var(--primary)]"
+              checked={options.enhanceVocals}
+              disabled={busy}
+              onChange={(e) => setOptions({ ...options, enhanceVocals: e.target.checked })}
+            />
+            Clean up audio for vocals
+          </label>
+
+          <div className="rounded-xl border border-border bg-muted/20">
+            <button
+              type="button"
+              className="w-full flex items-center justify-between px-3 py-2.5 text-xs font-medium"
+              onClick={() => setShowLyrics((v) => !v)}
+              aria-expanded={showLyrics}
+            >
+              <span className="flex items-center gap-2">
+                <FileText className="h-3.5 w-3.5 text-primary" />
+                I have the lyrics {hasPastedLyrics && <span className="text-primary">· {parseLyricsText(lyrics).length} lines</span>}
+              </span>
+              <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', showLyrics && 'rotate-180')} />
+            </button>
+            {showLyrics && (
+              <div className="px-3 pb-3 space-y-2">
+                <textarea
+                  className="w-full rounded-lg border border-border bg-background/60 px-3 py-2 text-xs text-foreground focus:ring-1 focus:ring-primary resize-y min-h-28 font-mono"
+                  rows={6}
+                  disabled={busy}
+                  placeholder={'Paste the correct lyrics, one line per line.\nSection labels like [Chorus] are ignored.'}
+                  value={lyrics}
+                  onChange={(e) => setLyrics(e.target.value)}
+                />
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  Your text is used exactly as written, so there are no recognition mistakes. Only the timing is detected.
+                </p>
+              </div>
+            )}
           </div>
 
           {busy ? (
@@ -243,14 +299,32 @@ const FileUploadPanel: React.FC<FileUploadPanelProps> = ({
               </Button>
             </div>
           ) : (
-            <Button
-              onClick={onTranscribe}
-              variant={hasLyrics ? 'outline' : 'default'}
-              className="w-full h-10 font-semibold tracking-wide text-xs rounded-lg"
-            >
-              {hasLyrics ? <RotateCcw className="h-3.5 w-3.5" /> : <Zap className="h-3.5 w-3.5" />}
-              {hasLyrics ? 'RE-GENERATE LYRICS' : 'GENERATE LYRICS'}
-            </Button>
+            hasPastedLyrics ? (
+              <div className="space-y-2">
+                <Button onClick={onTranscribe} className="w-full h-10 font-semibold tracking-wide text-xs rounded-lg">
+                  <Wand2 className="h-3.5 w-3.5" />
+                  SYNC MY LYRICS WITH AI
+                </Button>
+                <Button
+                  onClick={onQuickSync}
+                  variant="outline"
+                  className="w-full h-9 text-xs rounded-lg"
+                  title="Detects sung syllables with signal processing. No model download and instant, but rougher timing"
+                >
+                  <AudioWaveform className="h-3.5 w-3.5" />
+                  Quick sync: no AI, instant
+                </Button>
+              </div>
+            ) : (
+              <Button
+                onClick={onTranscribe}
+                variant={hasLyrics ? 'outline' : 'default'}
+                className="w-full h-10 font-semibold tracking-wide text-xs rounded-lg"
+              >
+                {hasLyrics ? <RotateCcw className="h-3.5 w-3.5" /> : <Zap className="h-3.5 w-3.5" />}
+                {hasLyrics ? 'RE-GENERATE LYRICS' : 'GENERATE LYRICS'}
+              </Button>
+            )
           )}
         </div>
       )}

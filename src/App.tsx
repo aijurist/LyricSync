@@ -16,11 +16,14 @@ import { useWebGPU } from '@/hooks/useWebGPU';
 import { baseName, isAudioFile, isLyricsFile } from '@/lib/files';
 import { EXPORT_FORMATS, exportLyrics, parseLyricsFile, type ExportFormat } from '@/lib/formats';
 import { findActiveChunkIndex, shiftChunks } from '@/lib/lyrics';
+import { MODELS, recommendedModel, type ModelSize } from '@/lib/models';
 import { downloadText, loadSession, readPreference, saveSession, writePreference } from '@/lib/storage';
 import { cn } from '@/lib/utils';
 import type { LyricChunk, TranscribeOptions, TranscriptionMeta } from '@/types';
 
-const DEFAULT_OPTIONS: TranscribeOptions = { language: 'auto', model: 'base' };
+const DEFAULT_OPTIONS: Omit<TranscribeOptions, 'model'> = { language: 'auto', enhanceVocals: true };
+
+const modelExists = (id: string): id is ModelSize => MODELS.some((m) => m.id === id);
 
 const isTyping = (target: EventTarget | null) =>
   target instanceof HTMLElement &&
@@ -37,10 +40,18 @@ function App() {
 
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [audioUrl, setAudioUrl] = useState('');
-  const [options, setOptionsState] = useState<TranscribeOptions>(() => ({
-    ...DEFAULT_OPTIONS,
-    ...readPreference<Partial<TranscribeOptions>>('options', {}),
-  }));
+  const [options, setOptionsState] = useState<TranscribeOptions>(() => {
+    const saved = readPreference<Partial<TranscribeOptions>>('options', {});
+    return { ...DEFAULT_OPTIONS, ...saved, model: saved.model && modelExists(saved.model) ? saved.model : 'small' };
+  });
+  const [lyricsText, setLyricsText] = useState('');
+  const modelChosen = useRef(!!readPreference<Partial<TranscribeOptions>>('options', {}).model);
+
+  // Default to the best model the device can run, until the user picks one
+  useEffect(() => {
+    if (webgpu === null || modelChosen.current) return;
+    setOptionsState((o) => ({ ...o, model: recommendedModel(webgpu) }));
+  }, [webgpu]);
 
   const lyrics = useHistory<LyricChunk[] | null>(null);
   const chunks = lyrics.value;
@@ -64,6 +75,7 @@ function App() {
   );
 
   const setOptions = (next: TranscribeOptions) => {
+    if (next.model !== options.model) modelChosen.current = true;
     setOptionsState(next);
     writePreference('options', next);
   };
@@ -85,6 +97,7 @@ function App() {
       cancelTranscription();
       setAudioFile(file);
       setAudioUrl(URL.createObjectURL(file));
+      setLyricsText('');
       setAbLoop({ a: null, b: null });
       setEditingIndex(null);
       setEditMode(false);
@@ -136,24 +149,58 @@ function App() {
 
   // --- Transcription ---------------------------------------------------------
 
+  const applyResult = (result: LyricChunk[], resultMeta: TranscriptionMeta) => {
+    // Re-syncing is undoable; a first result starts fresh history
+    if (chunks) setChunks(result);
+    else resetChunks(result);
+    setMeta(resultMeta);
+    setEditingIndex(null);
+  };
+
+  const reportError = (err: unknown) => {
+    if (err instanceof DOMException && err.name === 'AbortError') toast.show('Cancelled.');
+    else toast.show(err instanceof Error ? err.message : 'Something went wrong.', 'error');
+  };
+
   const runTranscription = async () => {
     if (!audioFile) return;
+    const lyrics = lyricsText.trim() ? lyricsText : undefined;
     try {
-      const { chunks: result, meta: resultMeta } = await transcriber.transcribe(audioFile, options);
-      // Re-transcribing is undoable; a first transcription starts fresh history
-      if (chunks) setChunks(result);
-      else resetChunks(result);
-      setMeta(resultMeta);
-      setEditingIndex(null);
+      const { chunks: result, meta: resultMeta } = await transcriber.transcribe(audioFile, options, lyrics);
+      applyResult(result, resultMeta);
+      const secs = Math.round(resultMeta.processingSeconds ?? 0);
+      if (resultMeta.source === 'ai+lyrics') {
+        const rate = resultMeta.matchRate ?? 0;
+        toast.show(
+          rate < 0.35
+            ? `Synced, but only ${Math.round(rate * 100)}% of words matched what was heard. Check that the lyrics belong to this song, or try a larger model.`
+            : `Synced your lyrics (${Math.round(rate * 100)}% of words confirmed by the AI) in ${secs}s.`,
+          rate < 0.35 ? 'info' : 'success',
+        );
+      } else {
+        toast.show(
+          result.length
+            ? `Done! ${result.length} lines in ${secs}s. If words are wrong, paste the real lyrics under “I have the lyrics” to fix them.`
+            : 'Finished, but no vocals were detected. Try a larger model or set the language.',
+          result.length ? 'success' : 'info',
+        );
+      }
+    } catch (err) {
+      reportError(err);
+    }
+  };
+
+  const runQuickSync = async () => {
+    if (!audioFile || !lyricsText.trim()) return;
+    try {
+      const { chunks: result, meta: resultMeta } = await transcriber.quickSync(audioFile, options, lyricsText);
+      applyResult(result, resultMeta);
       toast.show(
-        result.length
-          ? `Done! ${result.length} synced lines in ${Math.round(resultMeta.processingSeconds ?? 0)}s.`
-          : 'Finished, but no vocals were detected. Try a larger model or set the language.',
-        result.length ? 'success' : 'info',
+        `Quick-synced ${result.length} lines in ${(resultMeta.processingSeconds ?? 0).toFixed(1)}s. Timing is approximate; nudge lines in Edit mode or use AI sync for precision.`,
+        'success',
       );
     } catch (err) {
-      if (err instanceof DOMException && err.name === 'AbortError') toast.show('Transcription cancelled.');
-      else toast.show(err instanceof Error ? err.message : 'Transcription failed.', 'error');
+      reportError(err);
     }
   };
 
@@ -436,7 +483,11 @@ function App() {
                 onImportLyrics={importLyrics}
                 onLoadSample={loadSample}
                 onTranscribe={runTranscription}
+                onQuickSync={runQuickSync}
                 onCancel={cancelTranscription}
+                lyrics={lyricsText}
+                setLyrics={setLyricsText}
+                webgpu={webgpu}
               />
             </div>
           </div>
